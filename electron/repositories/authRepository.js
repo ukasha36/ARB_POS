@@ -42,6 +42,11 @@ class AuthRepository extends BaseRepository {
     }
   }
 
+  updatePassword(userId, hashedPassword) {
+    const stmt = this.db.prepare('UPDATE users SET password = ? WHERE id = ?');
+    return stmt.run(hashedPassword, userId);
+  }
+
   updateLastLogin(userId) {
     const stmt = this.db.prepare('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?');
     return stmt.run(userId);

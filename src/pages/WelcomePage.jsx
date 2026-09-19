@@ -120,29 +120,6 @@ export function WelcomePage() {
               Select an operation below or use the sidebar menu to begin.
             </p>
           </div>
-
-          {/* Quick System Badge */}
-          <div className="mt-5 pt-4 border-t border-[#F1F5F9] w-full flex flex-wrap items-center justify-center gap-4 text-xs font-mono text-[#475569]">
-            <div className="flex items-center gap-1.5">
-              <ShieldCheck className="w-4 h-4 text-[#16A34A]" />
-              <span>
-                Operator:{" "}
-                <strong className="text-[#0F172A] font-semibold">
-                  {currentUser?.displayName || "ARB Communication"}
-                </strong>
-              </span>
-            </div>
-            <span className="text-[#CBD5E1] hidden sm:inline">•</span>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-[#16A34A] animate-pulse" />
-              <span>
-                Database:{" "}
-                <strong className="text-[#0F172A] font-semibold">
-                  SQLite WAL (Local)
-                </strong>
-              </span>
-            </div>
-          </div>
         </div>
 
         {/* Quick Launch Action Tiles */}

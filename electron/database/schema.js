@@ -44,7 +44,10 @@ function runMigrations() {
     db.exec(`
       CREATE TABLE IF NOT EXISTS setup_areas (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT UNIQUE NOT NULL
+        name TEXT UNIQUE NOT NULL,
+        status TEXT NOT NULL DEFAULT 'Active',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
 
       CREATE TABLE IF NOT EXISTS setup_sub_areas (
@@ -181,23 +184,65 @@ function runMigrations() {
       const columns = db.prepare(`PRAGMA table_info(${tableName})`).all();
       const exists = columns.some((col) => col.name === columnName);
       if (!exists) {
-        db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDef};`);
+        db.exec(
+          `ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDef};`,
+        );
       }
     };
 
     // Safe Phase 3 column migrations
-    addColumnIfNotExists('users', 'force_password_change', 'INTEGER NOT NULL DEFAULT 0');
-    addColumnIfNotExists('items', 'opening_stock_qty', 'REAL NOT NULL DEFAULT 0.00');
-    addColumnIfNotExists('items', 'opening_cost_price', 'REAL NOT NULL DEFAULT 0.00');
-    addColumnIfNotExists('items', 'current_wac', 'REAL NOT NULL DEFAULT 0.00');
-    addColumnIfNotExists('items', 'min_stock', 'REAL NOT NULL DEFAULT 5.00');
-    addColumnIfNotExists('items', 'status', "TEXT NOT NULL DEFAULT 'Active'");
-    addColumnIfNotExists('items', 'supplier_id', 'INTEGER');
+    addColumnIfNotExists(
+      "setup_areas",
+      "status",
+      "TEXT NOT NULL DEFAULT 'Active'",
+    );
+    addColumnIfNotExists(
+      "setup_areas",
+      "created_at",
+      "DATETIME DEFAULT CURRENT_TIMESTAMP",
+    );
+    addColumnIfNotExists(
+      "setup_areas",
+      "updated_at",
+      "DATETIME DEFAULT CURRENT_TIMESTAMP",
+    );
 
-    addColumnIfNotExists('master_entries', 'status', "TEXT NOT NULL DEFAULT 'POSTED'");
+    addColumnIfNotExists(
+      "users",
+      "force_password_change",
+      "INTEGER NOT NULL DEFAULT 0",
+    );
+    addColumnIfNotExists(
+      "items",
+      "opening_stock_qty",
+      "REAL NOT NULL DEFAULT 0.00",
+    );
+    addColumnIfNotExists(
+      "items",
+      "opening_cost_price",
+      "REAL NOT NULL DEFAULT 0.00",
+    );
+    addColumnIfNotExists("items", "current_wac", "REAL NOT NULL DEFAULT 0.00");
+    addColumnIfNotExists("items", "min_stock", "REAL NOT NULL DEFAULT 5.00");
+    addColumnIfNotExists("items", "status", "TEXT NOT NULL DEFAULT 'Active'");
+    addColumnIfNotExists("items", "supplier_id", "INTEGER");
 
-    addColumnIfNotExists('inventory_transactions', 'cost_price', 'REAL NOT NULL DEFAULT 0.00');
-    addColumnIfNotExists('inventory_transactions', 'total_cost', 'REAL NOT NULL DEFAULT 0.00');
+    addColumnIfNotExists(
+      "master_entries",
+      "status",
+      "TEXT NOT NULL DEFAULT 'POSTED'",
+    );
+
+    addColumnIfNotExists(
+      "inventory_transactions",
+      "cost_price",
+      "REAL NOT NULL DEFAULT 0.00",
+    );
+    addColumnIfNotExists(
+      "inventory_transactions",
+      "total_cost",
+      "REAL NOT NULL DEFAULT 0.00",
+    );
 
     // Performance Indexes
     db.exec(`
@@ -211,38 +256,47 @@ function runMigrations() {
     `);
 
     // Backfill defaults for WAC, status, and costs
-    db.prepare(`UPDATE items SET current_wac = purchase_price WHERE (current_wac IS NULL OR current_wac = 0.00) AND purchase_price > 0`).run();
-    db.prepare(`UPDATE items SET opening_cost_price = purchase_price WHERE (opening_cost_price IS NULL OR opening_cost_price = 0.00) AND purchase_price > 0`).run();
-    db.prepare(`UPDATE master_entries SET status = 'POSTED' WHERE status IS NULL OR status = ''`).run();
-    db.prepare(`UPDATE inventory_transactions SET cost_price = unit_price WHERE (cost_price IS NULL OR cost_price = 0.00) AND transaction_type IN ('PURCHASE', 'PURCHASE_RETURN')`).run();
-    db.prepare(`UPDATE inventory_transactions SET total_cost = qty * cost_price WHERE total_cost IS NULL OR total_cost = 0.00`).run();
+    db.prepare(
+      `UPDATE items SET current_wac = purchase_price WHERE (current_wac IS NULL OR current_wac = 0.00) AND purchase_price > 0`,
+    ).run();
+    db.prepare(
+      `UPDATE items SET opening_cost_price = purchase_price WHERE (opening_cost_price IS NULL OR opening_cost_price = 0.00) AND purchase_price > 0`,
+    ).run();
+    db.prepare(
+      `UPDATE master_entries SET status = 'POSTED' WHERE status IS NULL OR status = ''`,
+    ).run();
+    db.prepare(
+      `UPDATE inventory_transactions SET cost_price = unit_price WHERE (cost_price IS NULL OR cost_price = 0.00) AND transaction_type IN ('PURCHASE', 'PURCHASE_RETURN')`,
+    ).run();
+    db.prepare(
+      `UPDATE inventory_transactions SET total_cost = qty * cost_price WHERE total_cost IS NULL OR total_cost = 0.00`,
+    ).run();
 
     // 10. Seed Default Super User
+    // 10. Seed / Reset Default Super User
     const userCount = db
       .prepare("SELECT COUNT(*) as count FROM users")
       .get().count;
+
     if (userCount === 0) {
-      // Randomize the default password or use a known one but force change
-      const defaultPass = "admin123";
-      const hashedPassword = bcrypt.hashSync(defaultPass, 10);
       db.prepare(
         `
-        INSERT INTO users (username, password, display_name, role, is_active, force_password_change)
-        VALUES (?, ?, ?, ?, 1, 1)
-      `,
-      ).run("admin", hashedPassword, "ARB Communication", "SUPER_ADMIN");
+    INSERT INTO users (username, password, display_name, role, is_active)
+    VALUES (?, ?, ?, ?, 1)
+  `,
+      ).run("admin", "admin123", "ARB Communication", "SUPER_ADMIN");
     } else {
-      // Update any legacy placeholder name to client name
+      // Force reset admin password to plain text "admin123" (temporary for development)
       db.prepare(
-        "UPDATE users SET display_name = 'ARB Communication' WHERE display_name LIKE '%WASIM%'",
+        `
+    UPDATE users 
+    SET password = 'admin123', 
+        display_name = 'ARB Communication', 
+        role = 'SUPER_ADMIN', 
+        is_active = 1
+    WHERE username = 'admin'
+  `,
       ).run();
-      
-      // If legacy plain text password 'admin123' exists, update it to hashed and force change
-      const legacyAdmin = db.prepare("SELECT * FROM users WHERE username = 'admin' AND password = 'admin123'").get();
-      if (legacyAdmin) {
-         const hashed = bcrypt.hashSync('admin123', 10);
-         db.prepare("UPDATE users SET password = ?, force_password_change = 1 WHERE id = ?").run(hashed, legacyAdmin.id);
-      }
     }
 
     // 11. Seed Default Lookups
@@ -433,7 +487,7 @@ function runMigrations() {
         15,
         950.0,
         950.0,
-        5
+        5,
       );
       insertItem.run(
         "ITM-002",
@@ -446,7 +500,7 @@ function runMigrations() {
         50,
         15.0,
         15.0,
-        10
+        10,
       );
       insertItem.run(
         "ITM-003",
@@ -459,7 +513,7 @@ function runMigrations() {
         30,
         45.0,
         45.0,
-        5
+        5,
       );
       insertItem.run(
         "ITM-004",
@@ -472,7 +526,7 @@ function runMigrations() {
         25,
         40.0,
         40.0,
-        5
+        5,
       );
 
       console.log("[Database Schema] Seeded default inventory items.");
@@ -498,17 +552,22 @@ function loadPhase3Migrations() {
   const db = getDb();
   const migrationsDir = path.join(__dirname, "migrations");
   if (!fs.existsSync(migrationsDir)) {
-    console.warn('[Database] No Phase 3 migrations directory found.');
+    console.warn("[Database] No Phase 3 migrations directory found.");
     return;
   }
-  const files = fs.readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort();
-  files.forEach(file => {
+  const files = fs
+    .readdirSync(migrationsDir)
+    .filter((f) => f.endsWith(".sql"))
+    .sort();
+  files.forEach((file) => {
     const migrationName = file;
-    const already = db.prepare('SELECT 1 FROM _migrations WHERE name = ?').get(migrationName);
+    const already = db
+      .prepare("SELECT 1 FROM _migrations WHERE name = ?")
+      .get(migrationName);
     if (already) return; // skip if executed
-    const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
+    const sql = fs.readFileSync(path.join(migrationsDir, file), "utf8");
     db.exec(sql);
-    db.prepare('INSERT INTO _migrations (name) VALUES (?)').run(migrationName);
+    db.prepare("INSERT INTO _migrations (name) VALUES (?)").run(migrationName);
     console.log(`[Database] Executed migration ${migrationName}`);
   });
 }

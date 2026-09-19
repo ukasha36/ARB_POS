@@ -1,20 +1,45 @@
-const authRepository = require('../repositories/authRepository');
-const bcrypt = require('bcryptjs');
+const authRepository = require("../repositories/authRepository");
+const bcrypt = require("bcryptjs");
 
 class AuthService {
   login(username, password) {
     if (!username || !password) {
-      return { success: false, error: 'Username and password are required' };
+      return { success: false, error: "Username and password are required" };
     }
 
     const user = authRepository.findByUsername(username.trim());
 
     if (!user) {
-      return { success: false, error: 'Invalid username or password' };
+      return { success: false, error: "Invalid username or password" };
     }
 
-    if (!bcrypt.compareSync(password, user.password)) {
-      return { success: false, error: 'Invalid username or password' };
+    if (!user.is_active) {
+      return { success: false, error: "This account is disabled" };
+    }
+
+    let isPasswordValid = false;
+
+    // Support both plain text (old) and bcrypt hashed passwords
+    if (
+      user.password.startsWith("$2a$") ||
+      user.password.startsWith("$2b$") ||
+      user.password.startsWith("$2y$")
+    ) {
+      // Use synchronous compare — login() is called synchronously from IPC handler
+      isPasswordValid = bcrypt.compareSync(password, user.password);
+    } else {
+      // Plain text password (legacy — auto-migrate on success)
+      isPasswordValid = user.password === password;
+      if (isPasswordValid) {
+        // Upgrade to bcrypt hash immediately
+        const hashed = bcrypt.hashSync(password, 10);
+        authRepository.updatePassword(user.id, hashed);
+        user.password = hashed;
+      }
+    }
+
+    if (!isPasswordValid) {
+      return { success: false, error: "Invalid username or password" };
     }
 
     // Update last login timestamp
@@ -36,7 +61,7 @@ class AuthService {
     try {
       const user = authRepository.findById(userId);
       if (!user) {
-        return { success: false, error: 'User not found' };
+        return { success: false, error: "User not found" };
       }
       return {
         success: true,
@@ -53,32 +78,44 @@ class AuthService {
     }
   }
 
-  updateProfile({ userId, username, displayName, currentPassword, newPassword }) {
+  updateProfile({
+    userId,
+    username,
+    displayName,
+    currentPassword,
+    newPassword,
+  }) {
     try {
       if (!userId) {
-        return { success: false, error: 'User ID is required' };
+        return { success: false, error: "User ID is required" };
       }
 
       const existingUser = authRepository.getUserWithPassword(userId);
       if (!existingUser) {
-        return { success: false, error: 'User account not found' };
+        return { success: false, error: "User account not found" };
       }
 
       if (!username || !username.trim()) {
-        return { success: false, error: 'Username is required' };
+        return { success: false, error: "Username is required" };
       }
 
       if (!displayName || !displayName.trim()) {
-        return { success: false, error: 'User display name is required' };
+        return { success: false, error: "User display name is required" };
       }
 
       const trimmedUsername = username.trim();
       const trimmedDisplayName = displayName.trim();
 
       // Check unique username
-      const conflict = authRepository.findByUsernameExcluding(trimmedUsername, userId);
+      const conflict = authRepository.findByUsernameExcluding(
+        trimmedUsername,
+        userId,
+      );
       if (conflict) {
-        return { success: false, error: `Username '${trimmedUsername}' is already in use by another account.` };
+        return {
+          success: false,
+          error: `Username '${trimmedUsername}' is already in use by another account.`,
+        };
       }
 
       // Check if password change requested
@@ -87,20 +124,26 @@ class AuthService {
 
       if (newPassword && newPassword.trim()) {
         if (!currentPassword) {
-          return { success: false, error: 'Current password is required to change password' };
+          return {
+            success: false,
+            error: "Current password is required to change password",
+          };
         }
         if (!bcrypt.compareSync(currentPassword, existingUser.password)) {
-          return { success: false, error: 'Current password is incorrect' };
+          return { success: false, error: "Current password is incorrect" };
         }
         if (newPassword.trim().length < 4) {
-          return { success: false, error: 'New password must be at least 4 characters long' };
+          return {
+            success: false,
+            error: "New password must be at least 4 characters long",
+          };
         }
         passwordToSave = bcrypt.hashSync(newPassword.trim(), 10);
         isForcedChange = false; // password changed successfully, no longer forced
       } else if (currentPassword) {
         // Just verifying identity if provided
         if (!bcrypt.compareSync(currentPassword, existingUser.password)) {
-          return { success: false, error: 'Current password is incorrect' };
+          return { success: false, error: "Current password is incorrect" };
         }
       }
 
@@ -113,7 +156,7 @@ class AuthService {
 
       return {
         success: true,
-        message: 'Profile updated successfully!',
+        message: "Profile updated successfully!",
         user: {
           id: existingUser.id,
           username: trimmedUsername,
