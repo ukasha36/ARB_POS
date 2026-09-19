@@ -40,6 +40,8 @@ function registerAccountIpc() {
 
   ipcMain.handle('accounts:save', async (event, accountData) => {
     try {
+      if (global.activeUserRole !== 'SUPER_ADMIN') { return { success: false, error: 'Unauthorized: SUPER_ADMIN role required.' }; }
+
       const data = accountService.saveAccount(accountData);
       return { success: true, data };
     } catch (err) {
@@ -49,6 +51,8 @@ function registerAccountIpc() {
 
   ipcMain.handle('accounts:delete', async (event, id) => {
     try {
+      if (global.activeUserRole !== 'SUPER_ADMIN') { return { success: false, error: 'Unauthorized: SUPER_ADMIN role required.' }; }
+
       const res = accountService.deleteAccount(id);
       return { success: true, ...res };
     } catch (err) {

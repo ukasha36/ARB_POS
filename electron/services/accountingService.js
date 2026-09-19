@@ -4,7 +4,7 @@ const itemRepository = require('../repositories/itemRepository');
 
 class AccountingService {
   postTransaction(params) {
-    const {
+    let {
       entry_type,
       date = new Date().toISOString().split('T')[0],
       description = '',
@@ -38,8 +38,29 @@ class AccountingService {
 
     const db = getDb();
 
+    // Generate unique sequential reference if missing or client-side placeholder
+    if (!reference_no || reference_no.startsWith('INV-') || reference_no === 'AUTO') {
+      const prefix = entry_type === 'SALE' ? 'SL-' : 
+                     entry_type === 'SALES_RETURN' ? 'SR-' : 
+                     entry_type === 'PURCHASE' ? 'PR-' : 
+                     entry_type === 'PURCHASE_RETURN' ? 'PRR-' : 'TX-';
+      
+      // We will generate this inside the transaction to ensure thread safety with SQLite
+    }
+
     // 2. Perform Atomic Transaction
     const executePost = db.transaction(() => {
+      // Re-evaluate reference_no safely inside lock
+      if (!reference_no || reference_no.startsWith('INV-') || reference_no === 'AUTO') {
+        const prefix = entry_type === 'SALE' ? 'SL-' : 
+                       entry_type === 'SALES_RETURN' ? 'SR-' : 
+                       entry_type === 'PURCHASE' ? 'PR-' : 
+                       entry_type === 'PURCHASE_RETURN' ? 'PRR-' : 'TX-';
+        const lastEntry = db.prepare(`SELECT seq FROM sqlite_sequence WHERE name = 'master_entries'`).get();
+        const nextId = (lastEntry ? lastEntry.seq : 0) + 1;
+        reference_no = `${prefix}${String(nextId).padStart(6, '0')}`;
+      }
+
       // Create Header Master Entry
       const entryId = ledgerRepository.createMasterEntry({
         entry_type,
@@ -75,6 +96,9 @@ class AccountingService {
         }, db);
       }
 
+      let totalSaleCogs = 0;
+      let totalReturnCogs = 0;
+
       // Process Inventory Transactions & Authoritative WAC Calculations
       for (const inv of inventory_lines) {
         if (!inv.item_id || !inv.qty) continue;
@@ -94,12 +118,17 @@ class AccountingService {
         const txTotalPrice = Math.round((Number(inv.total_price) || (txQty * txUnitPrice)) * 100) / 100;
         const txType = inv.transaction_type || entry_type;
 
+        // Block negative stock
+        if (txType === 'SALE' || txType === 'PURCHASE_RETURN') {
+          if (currentQty < txQty) {
+            throw new Error(`Insufficient stock for item: ${currentItem.name}. Available: ${currentQty}, Requested: ${txQty}`);
+          }
+        }
+
         let recordedCostPrice = 0.00;
         let recordedTotalCost = 0.00;
 
         if (txType === 'PURCHASE') {
-          // PURCHASE:
-          // New WAC = (Existing Qty * Current WAC + New Qty * Purchase Price) / (Existing Qty + New Qty)
           const validExistingQty = Math.max(0, currentQty);
           const totalExistingCost = validExistingQty * currentWac;
           const totalNewPurchaseCost = txQty * txUnitPrice;
@@ -113,21 +142,16 @@ class AccountingService {
           recordedCostPrice = txUnitPrice;
           recordedTotalCost = Math.round(txQty * txUnitPrice * 100) / 100;
 
-          // Update stock qty, latest purchase price, and authoritative new WAC
           itemRepository.updateWacAndStock(inv.item_id, txQty, newWac, txUnitPrice, db);
 
         } else if (txType === 'SALE') {
-          // SALE:
-          // Authoritative Cost is the item's current WAC
           recordedCostPrice = currentWac;
           recordedTotalCost = Math.round(txQty * currentWac * 100) / 100;
+          totalSaleCogs += recordedTotalCost;
 
-          // Stock decreases by txQty; WAC of remaining inventory remains unchanged
           itemRepository.updateStockQty(inv.item_id, -txQty, db);
 
         } else if (txType === 'SALES_RETURN') {
-          // SALES RETURN:
-          // Stock restored at original authoritative WAC cost (reversing COGS)
           let returnCost = Number(inv.cost_price);
           if (!returnCost || returnCost <= 0) {
             const lastSale = db.prepare(`
@@ -141,13 +165,11 @@ class AccountingService {
 
           recordedCostPrice = returnCost;
           recordedTotalCost = Math.round(txQty * returnCost * 100) / 100;
+          totalReturnCogs += recordedTotalCost;
 
-          // Stock restored (+txQty); WAC remains unchanged
           itemRepository.updateStockQty(inv.item_id, txQty, db);
 
         } else if (txType === 'PURCHASE_RETURN') {
-          // PURCHASE RETURN:
-          // Stock returned to supplier at purchase unit cost; recalculate WAC
           recordedCostPrice = txUnitPrice;
           recordedTotalCost = Math.round(txQty * txUnitPrice * 100) / 100;
 
@@ -163,13 +185,11 @@ class AccountingService {
           itemRepository.updateWacAndStock(inv.item_id, -txQty, newWac, null, db);
 
         } else {
-          // Other inventory adjustments
           recordedCostPrice = currentWac;
           recordedTotalCost = Math.round(txQty * currentWac * 100) / 100;
           itemRepository.updateStockQty(inv.item_id, txQty, db);
         }
 
-        // Record immutable inventory audit transaction
         ledgerRepository.insertInventoryTransaction({
           entry_id: entryId,
           item_id: inv.item_id,
@@ -182,9 +202,35 @@ class AccountingService {
         }, db);
       }
 
+      // Record Missing COGS Entries automatically
+      totalSaleCogs = Math.round(totalSaleCogs * 100) / 100;
+      totalReturnCogs = Math.round(totalReturnCogs * 100) / 100;
+
+      if (totalSaleCogs > 0 || totalReturnCogs > 0) {
+        const invAccount = db.prepare("SELECT id FROM accounts WHERE code = '5001'").get();
+        const cogsAccount = db.prepare("SELECT id FROM accounts WHERE code = '5003'").get();
+        
+        if (!invAccount || !cogsAccount) {
+          throw new Error("Cannot post COGS entries. System accounts 5001 (Inventory) or 5003 (COGS) are missing.");
+        }
+        
+        if (totalSaleCogs > 0) {
+          // SALE: Debit COGS, Credit INVENTORY
+          ledgerRepository.insertLedgerLine({ entry_id: entryId, account_id: cogsAccount.id, type: 'debit', amount: totalSaleCogs }, db);
+          ledgerRepository.insertLedgerLine({ entry_id: entryId, account_id: invAccount.id, type: 'credit', amount: totalSaleCogs }, db);
+        }
+        
+        if (totalReturnCogs > 0) {
+          // SALES RETURN: Debit INVENTORY, Credit COGS
+          ledgerRepository.insertLedgerLine({ entry_id: entryId, account_id: invAccount.id, type: 'debit', amount: totalReturnCogs }, db);
+          ledgerRepository.insertLedgerLine({ entry_id: entryId, account_id: cogsAccount.id, type: 'credit', amount: totalReturnCogs }, db);
+        }
+      }
+
       return {
         success: true,
         entryId,
+        referenceNo: reference_no,
         totalAmount: roundedDebit,
         message: `Transaction [${entry_type}] posted successfully.`,
       };

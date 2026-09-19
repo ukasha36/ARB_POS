@@ -27,17 +27,18 @@ class AuthRepository extends BaseRepository {
     return stmt.get(username, userId);
   }
 
-  updateProfile(userId, { username, displayName, password }) {
+  updateProfile(userId, { username, displayName, password, forcePasswordChange = false }) {
+    const forceFlag = forcePasswordChange ? 1 : 0;
     if (password) {
       const stmt = this.db.prepare(
-        'UPDATE users SET username = ?, display_name = ?, password = ? WHERE id = ?'
+        'UPDATE users SET username = ?, display_name = ?, password = ?, force_password_change = ? WHERE id = ?'
       );
-      return stmt.run(username, displayName, password, userId);
+      return stmt.run(username, displayName, password, forceFlag, userId);
     } else {
       const stmt = this.db.prepare(
-        'UPDATE users SET username = ?, display_name = ? WHERE id = ?'
+        'UPDATE users SET username = ?, display_name = ?, force_password_change = ? WHERE id = ?'
       );
-      return stmt.run(username, displayName, userId);
+      return stmt.run(username, displayName, forceFlag, userId);
     }
   }
 

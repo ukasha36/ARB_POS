@@ -23,6 +23,8 @@ function registerSetupIpc() {
 
   ipcMain.handle('setups:areas:create', async (event, data) => {
     try {
+      if (global.activeUserRole !== 'SUPER_ADMIN') { return { success: false, error: 'Unauthorized: SUPER_ADMIN role required.' }; }
+
       const result = areaRepo.create(data);
       return { success: true, data: result };
     } catch (err) {
@@ -32,6 +34,8 @@ function registerSetupIpc() {
 
   ipcMain.handle('setups:areas:update', async (event, id, data) => {
     try {
+      if (global.activeUserRole !== 'SUPER_ADMIN') { return { success: false, error: 'Unauthorized: SUPER_ADMIN role required.' }; }
+
       areaRepo.update(id, data);
       return { success: true };
     } catch (err) {
@@ -41,6 +45,8 @@ function registerSetupIpc() {
 
   ipcMain.handle('setups:areas:deactivate', async (event, id) => {
     try {
+      if (global.activeUserRole !== 'SUPER_ADMIN') { return { success: false, error: 'Unauthorized: SUPER_ADMIN role required.' }; }
+
       areaRepo.deactivate(id);
       return { success: true };
     } catch (err) {
@@ -70,6 +76,8 @@ function registerSetupIpc() {
 
   ipcMain.handle('setups:subAreas:create', async (event, data) => {
     try {
+      if (global.activeUserRole !== 'SUPER_ADMIN') { return { success: false, error: 'Unauthorized: SUPER_ADMIN role required.' }; }
+
       const result = subAreaRepo.create(data);
       return { success: true, data: result };
     } catch (err) {
@@ -79,6 +87,8 @@ function registerSetupIpc() {
 
   ipcMain.handle('setups:subAreas:update', async (event, id, data) => {
     try {
+      if (global.activeUserRole !== 'SUPER_ADMIN') { return { success: false, error: 'Unauthorized: SUPER_ADMIN role required.' }; }
+
       subAreaRepo.update(id, data);
       return { success: true };
     } catch (err) {
@@ -88,6 +98,8 @@ function registerSetupIpc() {
 
   ipcMain.handle('setups:subAreas:deactivate', async (event, id) => {
     try {
+      if (global.activeUserRole !== 'SUPER_ADMIN') { return { success: false, error: 'Unauthorized: SUPER_ADMIN role required.' }; }
+
       subAreaRepo.deactivate(id);
       return { success: true };
     } catch (err) {
@@ -108,6 +120,8 @@ function registerSetupIpc() {
 
   ipcMain.handle('setups:salesmen:create', async (event, data) => {
     try {
+      if (global.activeUserRole !== 'SUPER_ADMIN') { return { success: false, error: 'Unauthorized: SUPER_ADMIN role required.' }; }
+
       const result = salesmanRepo.create(data);
       return { success: true, data: result };
     } catch (err) {
@@ -117,6 +131,8 @@ function registerSetupIpc() {
 
   ipcMain.handle('setups:salesmen:update', async (event, id, data) => {
     try {
+      if (global.activeUserRole !== 'SUPER_ADMIN') { return { success: false, error: 'Unauthorized: SUPER_ADMIN role required.' }; }
+
       salesmanRepo.update(id, data);
       return { success: true };
     } catch (err) {
@@ -126,6 +142,8 @@ function registerSetupIpc() {
 
   ipcMain.handle('setups:salesmen:deactivate', async (event, id) => {
     try {
+      if (global.activeUserRole !== 'SUPER_ADMIN') { return { success: false, error: 'Unauthorized: SUPER_ADMIN role required.' }; }
+
       salesmanRepo.deactivate(id);
       return { success: true };
     } catch (err) {
@@ -164,6 +182,8 @@ function registerSetupIpc() {
 
   ipcMain.handle('setups:suppliers:create', async (event, data) => {
     try {
+      if (global.activeUserRole !== 'SUPER_ADMIN') { return { success: false, error: 'Unauthorized: SUPER_ADMIN role required.' }; }
+
       const result = supplierRepo.create(data);
       return { success: true, data: result };
     } catch (err) {
@@ -173,6 +193,8 @@ function registerSetupIpc() {
 
   ipcMain.handle('setups:suppliers:update', async (event, id, data) => {
     try {
+      if (global.activeUserRole !== 'SUPER_ADMIN') { return { success: false, error: 'Unauthorized: SUPER_ADMIN role required.' }; }
+
       supplierRepo.update(id, data);
       return { success: true };
     } catch (err) {
@@ -182,6 +204,8 @@ function registerSetupIpc() {
 
   ipcMain.handle('setups:suppliers:deactivate', async (event, id) => {
     try {
+      if (global.activeUserRole !== 'SUPER_ADMIN') { return { success: false, error: 'Unauthorized: SUPER_ADMIN role required.' }; }
+
       supplierRepo.deactivate(id);
       return { success: true };
     } catch (err) {
@@ -202,6 +226,8 @@ function registerSetupIpc() {
 
   ipcMain.handle('setups:wac:update', async (event, data) => {
     try {
+      if (global.activeUserRole !== 'SUPER_ADMIN') { return { success: false, error: 'Unauthorized: SUPER_ADMIN role required.' }; }
+
       const result = wacRepo.update(data);
       return { success: true, data: result };
     } catch (err) {

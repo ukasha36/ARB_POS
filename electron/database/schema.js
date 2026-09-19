@@ -1,4 +1,7 @@
 const { getDb } = require("./connection");
+const bcrypt = require("bcryptjs");
+const path = require("path");
+const fs = require("fs");
 
 function runMigrations() {
   const db = getDb();
@@ -22,6 +25,7 @@ function runMigrations() {
         display_name TEXT NOT NULL,
         role TEXT NOT NULL DEFAULT 'OPERATOR',
         is_active INTEGER NOT NULL DEFAULT 1,
+        force_password_change INTEGER NOT NULL DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         last_login DATETIME
       );
@@ -182,6 +186,7 @@ function runMigrations() {
     };
 
     // Safe Phase 3 column migrations
+    addColumnIfNotExists('users', 'force_password_change', 'INTEGER NOT NULL DEFAULT 0');
     addColumnIfNotExists('items', 'opening_stock_qty', 'REAL NOT NULL DEFAULT 0.00');
     addColumnIfNotExists('items', 'opening_cost_price', 'REAL NOT NULL DEFAULT 0.00');
     addColumnIfNotExists('items', 'current_wac', 'REAL NOT NULL DEFAULT 0.00');
@@ -217,17 +222,27 @@ function runMigrations() {
       .prepare("SELECT COUNT(*) as count FROM users")
       .get().count;
     if (userCount === 0) {
+      // Randomize the default password or use a known one but force change
+      const defaultPass = "admin123";
+      const hashedPassword = bcrypt.hashSync(defaultPass, 10);
       db.prepare(
         `
-        INSERT INTO users (username, password, display_name, role, is_active)
-        VALUES (?, ?, ?, ?, 1)
+        INSERT INTO users (username, password, display_name, role, is_active, force_password_change)
+        VALUES (?, ?, ?, ?, 1, 1)
       `,
-      ).run("admin", "admin123", "ARB Communication", "SUPER_ADMIN");
+      ).run("admin", hashedPassword, "ARB Communication", "SUPER_ADMIN");
     } else {
       // Update any legacy placeholder name to client name
       db.prepare(
         "UPDATE users SET display_name = 'ARB Communication' WHERE display_name LIKE '%WASIM%'",
       ).run();
+      
+      // If legacy plain text password 'admin123' exists, update it to hashed and force change
+      const legacyAdmin = db.prepare("SELECT * FROM users WHERE username = 'admin' AND password = 'admin123'").get();
+      if (legacyAdmin) {
+         const hashed = bcrypt.hashSync('admin123', 10);
+         db.prepare("UPDATE users SET password = ?, force_password_change = 1 WHERE id = ?").run(hashed, legacyAdmin.id);
+      }
     }
 
     // 11. Seed Default Lookups
@@ -360,6 +375,16 @@ function runMigrations() {
         0.0,
         "Dr",
         "EXPENSE",
+      );
+      insertAccount.run(
+        "5003",
+        "Cost of Goods Sold (COGS)",
+        "EXPENSE",
+        0,
+        0,
+        0.0,
+        "Dr",
+        "COGS",
       );
 
       // Seed Sample Customers & Suppliers

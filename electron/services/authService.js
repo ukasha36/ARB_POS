@@ -1,4 +1,5 @@
 const authRepository = require('../repositories/authRepository');
+const bcrypt = require('bcryptjs');
 
 class AuthService {
   login(username, password) {
@@ -12,7 +13,7 @@ class AuthService {
       return { success: false, error: 'Invalid username or password' };
     }
 
-    if (user.password !== password) {
+    if (!bcrypt.compareSync(password, user.password)) {
       return { success: false, error: 'Invalid username or password' };
     }
 
@@ -26,6 +27,7 @@ class AuthService {
         username: user.username,
         displayName: user.display_name,
         role: user.role,
+        forcePasswordChange: !!user.force_password_change,
       },
     };
   }
@@ -43,6 +45,7 @@ class AuthService {
           username: user.username,
           displayName: user.display_name,
           role: user.role,
+          forcePasswordChange: !!user.force_password_change,
         },
       };
     } catch (err) {
@@ -80,20 +83,23 @@ class AuthService {
 
       // Check if password change requested
       let passwordToSave = null;
+      let isForcedChange = !!existingUser.force_password_change;
+
       if (newPassword && newPassword.trim()) {
         if (!currentPassword) {
           return { success: false, error: 'Current password is required to change password' };
         }
-        if (existingUser.password !== currentPassword) {
+        if (!bcrypt.compareSync(currentPassword, existingUser.password)) {
           return { success: false, error: 'Current password is incorrect' };
         }
         if (newPassword.trim().length < 4) {
           return { success: false, error: 'New password must be at least 4 characters long' };
         }
-        passwordToSave = newPassword.trim();
+        passwordToSave = bcrypt.hashSync(newPassword.trim(), 10);
+        isForcedChange = false; // password changed successfully, no longer forced
       } else if (currentPassword) {
         // Just verifying identity if provided
-        if (existingUser.password !== currentPassword) {
+        if (!bcrypt.compareSync(currentPassword, existingUser.password)) {
           return { success: false, error: 'Current password is incorrect' };
         }
       }
@@ -102,6 +108,7 @@ class AuthService {
         username: trimmedUsername,
         displayName: trimmedDisplayName,
         password: passwordToSave,
+        forcePasswordChange: isForcedChange,
       });
 
       return {
@@ -112,6 +119,7 @@ class AuthService {
           username: trimmedUsername,
           displayName: trimmedDisplayName,
           role: existingUser.role,
+          forcePasswordChange: isForcedChange,
         },
       };
     } catch (err) {

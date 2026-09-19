@@ -13,6 +13,8 @@ function registerReportIpc() {
 
   ipcMain.handle('reports:generalLedger', async (event, filters) => {
     try {
+      if (global.activeUserRole !== 'SUPER_ADMIN') { return { success: false, error: 'Unauthorized: SUPER_ADMIN role required.' }; }
+
       const data = reportService.getGeneralLedger(filters);
       return { success: true, data };
     } catch (err) {
@@ -85,6 +87,8 @@ function registerReportIpc() {
 
   ipcMain.handle('reports:profitLoss', async (event, { dateFrom, dateTo }) => {
     try {
+      if (global.activeUserRole !== 'SUPER_ADMIN') { return { success: false, error: 'Unauthorized: SUPER_ADMIN role required.' }; }
+
       const data = reportService.getProfitLoss(dateFrom, dateTo);
       return { success: true, data };
     } catch (err) {
@@ -94,6 +98,8 @@ function registerReportIpc() {
 
   ipcMain.handle('reports:stockValuation', async (event, { search, category }) => {
     try {
+      if (global.activeUserRole !== 'SUPER_ADMIN') { return { success: false, error: 'Unauthorized: SUPER_ADMIN role required.' }; }
+
       const data = reportService.getStockValuation(search, category);
       return { success: true, data };
     } catch (err) {
@@ -103,6 +109,8 @@ function registerReportIpc() {
 
   ipcMain.handle('reports:stockAnalytics', async () => {
     try {
+      if (global.activeUserRole !== 'SUPER_ADMIN') { return { success: false, error: 'Unauthorized: SUPER_ADMIN role required.' }; }
+
       const data = reportService.getStockAnalytics();
       return { success: true, data };
     } catch (err) {

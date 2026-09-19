@@ -65,6 +65,11 @@ export function EditProfileModal() {
       return;
     }
 
+    if (currentUser?.forcePasswordChange && !newPassword) {
+      setStatus({ type: "error", message: "You must set a new password to continue." });
+      return;
+    }
+
     if (newPassword) {
       if (!currentPassword) {
         setStatus({
@@ -133,29 +138,31 @@ export function EditProfileModal() {
               </p>
             </div>
           </div>
-          <button
-            onClick={handleClose}
-            className="text-white/80 hover:text-white hover:bg-white/10 p-1 rounded transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          {!currentUser?.forcePasswordChange && (
+            <button
+              onClick={handleClose}
+              className="text-white/80 hover:text-white hover:bg-white/10 p-1 rounded transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
         {/* Feedback Alert */}
-        {status && (
+        {(status || currentUser?.forcePasswordChange) && (
           <div
             className={`mx-5 mt-4 p-3 rounded-[3px] text-xs font-semibold border flex items-center gap-2 ${
-              status.type === "success"
+              status?.type === "success"
                 ? "bg-[#DCFCE7] text-[#166534] border-[#86EFAC]"
-                : "bg-[#FEF2F2] text-[#991B1B] border-[#FCA5A5]"
+                : (status?.type === "error" ? "bg-[#FEF2F2] text-[#991B1B] border-[#FCA5A5]" : "bg-[#FEF9C3] text-[#A16207] border-[#FEF08A]")
             }`}
           >
-            {status.type === "success" ? (
+            {status?.type === "success" ? (
               <CheckCircle2 className="w-4 h-4 shrink-0 text-[#16A34A]" />
             ) : (
               <AlertCircle className="w-4 h-4 shrink-0 text-[#DC2626]" />
             )}
-            <span>{status.message}</span>
+            <span>{status?.message || "For security reasons, you must change your default password to continue."}</span>
           </div>
         )}
 
@@ -278,15 +285,17 @@ export function EditProfileModal() {
           </div>
 
           <div className="pt-2 flex items-center justify-end gap-2 border-t border-[#E2E8F0]">
-            <Button
-              type="button"
-              variant="outline"
-              size="md"
-              onClick={handleClose}
-              disabled={saving}
-            >
-              Cancel
-            </Button>
+            {!currentUser?.forcePasswordChange && (
+              <Button
+                type="button"
+                variant="outline"
+                size="md"
+                onClick={handleClose}
+                disabled={saving}
+              >
+                Cancel
+              </Button>
+            )}
             <Button
               type="submit"
               variant="primary"

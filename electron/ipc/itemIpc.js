@@ -22,6 +22,8 @@ function registerItemIpc() {
 
   ipcMain.handle('items:save', async (event, itemData) => {
     try {
+      if (global.activeUserRole !== 'SUPER_ADMIN') { return { success: false, error: 'Unauthorized: SUPER_ADMIN role required.' }; }
+
       const data = itemService.saveItem(itemData);
       return { success: true, data };
     } catch (err) {
@@ -31,6 +33,8 @@ function registerItemIpc() {
 
   ipcMain.handle('items:delete', async (event, id) => {
     try {
+      if (global.activeUserRole !== 'SUPER_ADMIN') { return { success: false, error: 'Unauthorized: SUPER_ADMIN role required.' }; }
+
       const res = itemService.deleteItem(id);
       return res;
     } catch (err) {
@@ -40,6 +44,8 @@ function registerItemIpc() {
 
   ipcMain.handle('items:deactivate', async (event, id) => {
     try {
+      if (global.activeUserRole !== 'SUPER_ADMIN') { return { success: false, error: 'Unauthorized: SUPER_ADMIN role required.' }; }
+
       const data = itemService.deactivateItem(id);
       return { success: true, data };
     } catch (err) {

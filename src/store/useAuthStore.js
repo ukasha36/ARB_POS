@@ -17,6 +17,7 @@ export const useAuthStore = create((set) => ({
           isAuthenticated: true,
           currentUser: response.user,
           isLoginModalOpen: false,
+          isEditProfileOpen: !!response.user.forcePasswordChange,
           isLoading: false,
           error: null,
         });

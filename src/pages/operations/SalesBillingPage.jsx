@@ -82,10 +82,6 @@ export function SalesBillingPage() {
 
     updated[index] = row;
     setLineItems(updated);
-
-    // Auto update paid amount to total if full cash counter billing
-    const newGrandTotal = Math.round(updated.reduce((sum, item) => sum + (item.total || 0), 0) * 100) / 100;
-    setPaidAmount(newGrandTotal.toString());
   };
 
   const handleBarcodeSearch = (e) => {
@@ -150,6 +146,18 @@ export function SalesBillingPage() {
       return;
     }
 
+    // Check Credit Limit (Client-side block for UX)
+    const cust = customers.find(c => c.id === parseInt(customerId, 10));
+    if (cust && creditBalance > 0 && cust.credit_limit > 0) {
+       // We should ideally check DB balance, but checking limit vs just this invoice is a start
+       // if we assume their existing balance + this credit exceeds it.
+       // Without an async check here, we'll just check if this invoice alone exceeds it
+       if (creditBalance > cust.credit_limit) {
+         setStatus({ type: 'error', text: `Credit sale of ${formatCurrency(creditBalance)} exceeds customer's credit limit of ${formatCurrency(cust.credit_limit)}.` });
+         return;
+       }
+    }
+
     setPosting(true);
     setStatus(null);
 
@@ -203,7 +211,7 @@ export function SalesBillingPage() {
       if (res.success) {
         setStatus({
           type: 'success',
-          text: `Sales Invoice #${invoiceNo} completed! Total: ${formatCurrency(grandTotal)} (Cash Recv: ${formatCurrency(numPaid)}, Customer Credit: ${formatCurrency(creditBalance)}). Stock reduced.`,
+          text: `Sales Invoice #${res.referenceNo || invoiceNo} completed! Total: ${formatCurrency(grandTotal)} (Cash Recv: ${formatCurrency(numPaid)}, Customer Credit: ${formatCurrency(creditBalance)}). Stock reduced.`,
         });
         setInvoiceNo(`INV-${Date.now().toString().slice(-5)}`);
         setPaidAmount('0');
@@ -272,7 +280,7 @@ export function SalesBillingPage() {
             >
               {customers.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.code} - {c.title}
+                  {c.code} - {c.title} {c.credit_limit > 0 ? `(Limit: ${c.credit_limit})` : ''}
                 </option>
               ))}
             </select>
@@ -329,73 +337,81 @@ export function SalesBillingPage() {
             <thead>
               <tr className="bg-[#F1F5F9] border-b border-[#E2E8F0] text-[11px] font-bold text-[#475569] uppercase">
                 <th className="p-2 border-r border-[#E2E8F0] w-12">#</th>
-                <th className="p-2 border-r border-[#E2E8F0]">Item Name</th>
+                <th className="p-2 border-r border-[#E2E8F0]">Item Name & Stock</th>
                 <th className="p-2 border-r border-[#E2E8F0] w-24">Qty</th>
-                <th className="p-2 border-r border-[#E2E8F0] w-28">Unit Price (PKR)</th>
-                <th className="p-2 border-r border-[#E2E8F0] w-28">Discount (PKR)</th>
-                <th className="p-2 border-r border-[#E2E8F0] w-36">Total (PKR)</th>
+                <th className="p-2 border-r border-[#E2E8F0] w-28">Unit Price</th>
+                <th className="p-2 border-r border-[#E2E8F0] w-28">Discount</th>
+                <th className="p-2 border-r border-[#E2E8F0] w-36">Total</th>
                 <th className="p-2 w-12 text-center">Action</th>
               </tr>
             </thead>
             <tbody>
-              {lineItems.map((item, idx) => (
-                <tr key={idx} className="border-b border-[#E2E8F0]">
-                  <td className="p-2 font-mono text-xs text-[#64748B] border-r border-[#E2E8F0]">{idx + 1}</td>
-                  <td className="p-1 border-r border-[#E2E8F0]">
-                    <select
-                      value={item.item_id}
-                      onChange={(e) => handleLineItemChange(idx, 'item_id', e.target.value)}
-                      className="w-full px-2 py-1 text-xs bg-white border border-[#CBD5E1] rounded-[3px]"
-                    >
-                      {availableItems.map((ai) => (
-                        <option key={ai.id} value={ai.id}>
-                          {ai.code} - {ai.name} (In Stock: {ai.stock_qty})
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="p-1 border-r border-[#E2E8F0]">
-                    <input
-                      type="number"
-                      min="1"
-                      value={item.qty}
-                      onChange={(e) => handleLineItemChange(idx, 'qty', e.target.value)}
-                      className="w-full px-2 py-1 text-xs font-mono font-bold bg-white border border-[#CBD5E1] rounded-[3px]"
-                    />
-                  </td>
-                  <td className="p-1 border-r border-[#E2E8F0]">
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={item.unit_price}
-                      onChange={(e) => handleLineItemChange(idx, 'unit_price', e.target.value)}
-                      className="w-full px-2 py-1 text-xs font-mono bg-white border border-[#CBD5E1] rounded-[3px]"
-                    />
-                  </td>
-                  <td className="p-1 border-r border-[#E2E8F0]">
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={item.discount}
-                      onChange={(e) => handleLineItemChange(idx, 'discount', e.target.value)}
-                      className="w-full px-2 py-1 text-xs font-mono bg-white border border-[#CBD5E1] rounded-[3px]"
-                    />
-                  </td>
-                  <td className="p-2 border-r border-[#E2E8F0] font-mono font-bold text-xs text-[#0F172A]">
-                    {formatCurrency(item.total)}
-                  </td>
-                  <td className="p-1 text-center">
-                    <button
-                      type="button"
-                      onClick={() => removeLineItem(idx)}
-                      disabled={lineItems.length === 1}
-                      className="text-[#DC2626] hover:bg-[#FEE2E2] p-1 rounded disabled:opacity-30"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {lineItems.map((item, idx) => {
+                const selectedItem = availableItems.find(ai => ai.id === parseInt(item.item_id, 10));
+                return (
+                  <tr key={idx} className="border-b border-[#E2E8F0]">
+                    <td className="p-2 font-mono text-xs text-[#64748B] border-r border-[#E2E8F0]">{idx + 1}</td>
+                    <td className="p-1 border-r border-[#E2E8F0]">
+                      <select
+                        value={item.item_id}
+                        onChange={(e) => handleLineItemChange(idx, 'item_id', e.target.value)}
+                        className="w-full px-2 py-1 text-xs bg-white border border-[#CBD5E1] rounded-[3px] mb-1"
+                      >
+                        {availableItems.map((ai) => (
+                          <option key={ai.id} value={ai.id}>
+                            {ai.code} - {ai.name}
+                          </option>
+                        ))}
+                      </select>
+                      {selectedItem && (
+                        <div className={`text-[10px] font-bold px-2 ${selectedItem.stock_qty <= 0 ? 'text-red-500' : 'text-green-600'}`}>
+                          Available Stock: {selectedItem.stock_qty}
+                        </div>
+                      )}
+                    </td>
+                    <td className="p-1 border-r border-[#E2E8F0]">
+                      <input
+                        type="number"
+                        min="1"
+                        value={item.qty}
+                        onChange={(e) => handleLineItemChange(idx, 'qty', e.target.value)}
+                        className="w-full px-2 py-1 text-xs font-mono font-bold bg-white border border-[#CBD5E1] rounded-[3px]"
+                      />
+                    </td>
+                    <td className="p-1 border-r border-[#E2E8F0]">
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={item.unit_price}
+                        onChange={(e) => handleLineItemChange(idx, 'unit_price', e.target.value)}
+                        className="w-full px-2 py-1 text-xs font-mono bg-white border border-[#CBD5E1] rounded-[3px]"
+                      />
+                    </td>
+                    <td className="p-1 border-r border-[#E2E8F0]">
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={item.discount}
+                        onChange={(e) => handleLineItemChange(idx, 'discount', e.target.value)}
+                        className="w-full px-2 py-1 text-xs font-mono bg-white border border-[#CBD5E1] rounded-[3px]"
+                      />
+                    </td>
+                    <td className="p-2 border-r border-[#E2E8F0] font-mono font-bold text-xs text-[#0F172A]">
+                      {formatCurrency(item.total)}
+                    </td>
+                    <td className="p-1 text-center">
+                      <button
+                        type="button"
+                        onClick={() => removeLineItem(idx)}
+                        disabled={lineItems.length === 1}
+                        className="text-[#DC2626] hover:bg-[#FEE2E2] p-1 rounded disabled:opacity-30"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -420,7 +436,16 @@ export function SalesBillingPage() {
             </div>
 
             <div>
-              <span className="block text-[10px] uppercase font-bold text-[#16A34A]">Cash Paid (PKR)</span>
+              <div className="flex items-center justify-end gap-1 mb-0.5">
+                <span className="text-[10px] uppercase font-bold text-[#16A34A]">Cash Paid</span>
+                <button 
+                  type="button" 
+                  onClick={() => setPaidAmount(grandTotal.toString())}
+                  className="text-[9px] bg-[#DCFCE7] text-[#166534] border border-[#86EFAC] px-1 rounded hover:bg-[#BBF7D0]"
+                >
+                  FULL
+                </button>
+              </div>
               <input
                 type="number"
                 step="0.01"

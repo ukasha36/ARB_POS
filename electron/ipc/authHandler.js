@@ -12,7 +12,12 @@ function registerAuthHandlers() {
 
   ipcMain.handle('auth:login', async (event, { username, password }) => {
     try {
-      return authService.login(username, password);
+      const result = authService.login(username, password);
+      if (result.success) {
+         global.activeUserId = result.user.id;
+         global.activeUserRole = result.user.role;
+      }
+      return result;
     } catch (err) {
       console.error('[IPC auth:login Error]', err);
       return { success: false, error: err.message };
