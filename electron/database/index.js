@@ -2,7 +2,7 @@ const { app } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { initConnection, closeConnection, getDb } = require('./connection');
-const { runMigrations } = require('./schema');
+const { runMigrations, loadPhase3Migrations } = require('./schema');
 
 /**
  * Resolves the database file path based on environment:
@@ -31,6 +31,7 @@ function initDatabase() {
   const dbPath = getDatabasePath();
   const db = initConnection(dbPath);
   runMigrations();
+  loadPhase3Migrations();
   return db;
 }
 

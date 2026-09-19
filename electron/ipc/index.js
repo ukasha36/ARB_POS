@@ -5,6 +5,7 @@ const registerAccountIpc = require('./accountIpc');
 const registerItemIpc = require('./itemIpc');
 const registerTransactionIpc = require('./transactionIpc');
 const registerReportIpc = require('./reportIpc');
+const registerSetupIpc = require('./setupIpc');
 
 function registerIpcHandlers() {
   // 1. Explicitly register Auth IPC handlers (auth:login, auth:getProfile, auth:updateProfile)
@@ -17,6 +18,9 @@ function registerIpcHandlers() {
   registerItemIpc();
   registerTransactionIpc();
   registerReportIpc();
+
+  // 3. Register Phase 3 Setup IPC handlers (areas, subAreas, salesmen, suppliers, wac)
+  registerSetupIpc();
 
   console.log('[IPC] All Electron IPC channels registered successfully.');
 }

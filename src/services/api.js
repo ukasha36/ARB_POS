@@ -99,6 +99,40 @@ export const api = {
     },
   },
 
+  setups: {
+    areas: {
+      list: async (opts) => hasElectron ? await window.electronAPI.setups.areas.list(opts) : { success: true, data: [] },
+      create: async (data) => hasElectron ? await window.electronAPI.setups.areas.create(data) : { success: true, data },
+      update: async (id, data) => hasElectron ? await window.electronAPI.setups.areas.update(id, data) : { success: true, data },
+      deactivate: async (id) => hasElectron ? await window.electronAPI.setups.areas.deactivate(id) : { success: true },
+    },
+    subAreas: {
+      list: async (opts) => hasElectron ? await window.electronAPI.setups.subAreas.list(opts) : { success: true, data: [] },
+      listByArea: async (areaId) => hasElectron ? await window.electronAPI.setups.subAreas.listByArea(areaId) : { success: true, data: [] },
+      create: async (data) => hasElectron ? await window.electronAPI.setups.subAreas.create(data) : { success: true, data },
+      update: async (id, data) => hasElectron ? await window.electronAPI.setups.subAreas.update(id, data) : { success: true, data },
+      deactivate: async (id) => hasElectron ? await window.electronAPI.setups.subAreas.deactivate(id) : { success: true },
+    },
+    salesmen: {
+      list: async (opts) => hasElectron ? await window.electronAPI.setups.salesmen.list(opts) : { success: true, data: [] },
+      create: async (data) => hasElectron ? await window.electronAPI.setups.salesmen.create(data) : { success: true, data },
+      update: async (id, data) => hasElectron ? await window.electronAPI.setups.salesmen.update(id, data) : { success: true, data },
+      deactivate: async (id) => hasElectron ? await window.electronAPI.setups.salesmen.deactivate(id) : { success: true },
+      getNextCode: async () => hasElectron ? await window.electronAPI.setups.salesmen.getNextCode() : { success: true, code: 'S-01' },
+    },
+    suppliers: {
+      list: async (opts) => hasElectron ? await window.electronAPI.setups.suppliers.list(opts) : { success: true, data: [] },
+      getById: async (id) => hasElectron ? await window.electronAPI.setups.suppliers.getById(id) : { success: true, data: null },
+      create: async (data) => hasElectron ? await window.electronAPI.setups.suppliers.create(data) : { success: true, data },
+      update: async (id, data) => hasElectron ? await window.electronAPI.setups.suppliers.update(id, data) : { success: true, data },
+      deactivate: async (id) => hasElectron ? await window.electronAPI.setups.suppliers.deactivate(id) : { success: true },
+    },
+    wac: {
+      get: async () => hasElectron ? await window.electronAPI.setups.wac.get() : { success: true, data: null },
+      update: async (data) => hasElectron ? await window.electronAPI.setups.wac.update(data) : { success: true, data },
+    },
+  },
+
   reports: {
     dashboardOverview: async () => {
       if (hasElectron) return await window.electronAPI.reports.dashboardOverview();
@@ -136,12 +170,12 @@ export const api = {
       if (hasElectron) return await window.electronAPI.reports.purchaseReturns(filters);
       return { success: true, data: { records: [], summary: {} } };
     },
-    profitLoss: async (dateFrom = null, dateTo = null) => {
-      if (hasElectron) return await window.electronAPI.reports.profitLoss({ dateFrom, dateTo });
+    profitLoss: async (params = {}) => {
+      if (hasElectron) return await window.electronAPI.reports.profitLoss(params);
       return { success: true, data: { revenue: {}, costOfGoodsSold: {}, operatingExpenses: { items: [] } } };
     },
-    stockValuation: async (search = '', category = '') => {
-      if (hasElectron) return await window.electronAPI.reports.stockValuation({ search, category });
+    stockValuation: async (params = {}) => {
+      if (hasElectron) return await window.electronAPI.reports.stockValuation(params);
       return { success: true, data: { items: [], summary: {} } };
     },
     stockAnalytics: async () => {

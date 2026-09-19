@@ -51,4 +51,37 @@ contextBridge.exposeInMainWorld('electronAPI', {
     minimize: () => ipcRenderer.send('app:minimize'),
     maximize: () => ipcRenderer.send('app:maximize'),
   },
+  setups: {
+    areas: {
+      list: (opts) => ipcRenderer.invoke('setups:areas:list', opts),
+      create: (data) => ipcRenderer.invoke('setups:areas:create', data),
+      update: (id, data) => ipcRenderer.invoke('setups:areas:update', id, data),
+      deactivate: (id) => ipcRenderer.invoke('setups:areas:deactivate', id),
+    },
+    subAreas: {
+      list: (opts) => ipcRenderer.invoke('setups:subAreas:list', opts),
+      listByArea: (areaId) => ipcRenderer.invoke('setups:subAreas:listByArea', areaId),
+      create: (data) => ipcRenderer.invoke('setups:subAreas:create', data),
+      update: (id, data) => ipcRenderer.invoke('setups:subAreas:update', id, data),
+      deactivate: (id) => ipcRenderer.invoke('setups:subAreas:deactivate', id),
+    },
+    salesmen: {
+      list: (opts) => ipcRenderer.invoke('setups:salesmen:list', opts),
+      create: (data) => ipcRenderer.invoke('setups:salesmen:create', data),
+      update: (id, data) => ipcRenderer.invoke('setups:salesmen:update', id, data),
+      deactivate: (id) => ipcRenderer.invoke('setups:salesmen:deactivate', id),
+      getNextCode: () => ipcRenderer.invoke('setups:salesmen:getNextCode'),
+    },
+    suppliers: {
+      list: (opts) => ipcRenderer.invoke('setups:suppliers:list', opts),
+      getById: (id) => ipcRenderer.invoke('setups:suppliers:getById', id),
+      create: (data) => ipcRenderer.invoke('setups:suppliers:create', data),
+      update: (id, data) => ipcRenderer.invoke('setups:suppliers:update', id, data),
+      deactivate: (id) => ipcRenderer.invoke('setups:suppliers:deactivate', id),
+    },
+    wac: {
+      get: () => ipcRenderer.invoke('setups:wac:get'),
+      update: (data) => ipcRenderer.invoke('setups:wac:update', data),
+    },
+  },
 });

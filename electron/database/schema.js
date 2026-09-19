@@ -468,6 +468,24 @@ function runMigrations() {
   console.log("[Database Schema] Phase 2 Migrations executed successfully.");
 }
 
-module.exports = {
-  runMigrations,
-};
+// ---------- New: Load Phase 3 migration scripts ----------
+function loadPhase3Migrations() {
+  const db = getDb();
+  const migrationsDir = path.join(__dirname, "migrations");
+  if (!fs.existsSync(migrationsDir)) {
+    console.warn('[Database] No Phase 3 migrations directory found.');
+    return;
+  }
+  const files = fs.readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort();
+  files.forEach(file => {
+    const migrationName = file;
+    const already = db.prepare('SELECT 1 FROM _migrations WHERE name = ?').get(migrationName);
+    if (already) return; // skip if executed
+    const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
+    db.exec(sql);
+    db.prepare('INSERT INTO _migrations (name) VALUES (?)').run(migrationName);
+    console.log(`[Database] Executed migration ${migrationName}`);
+  });
+}
+
+module.exports = { runMigrations, loadPhase3Migrations };

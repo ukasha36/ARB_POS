@@ -1,12 +1,13 @@
-import React from 'react';
-import { useNavigationStore } from '../store/useNavigationStore';
-import { Card } from '../components/common/Card';
-import { Button } from '../components/common/Button';
-import { Plus, Search, Filter, Printer, Download, Layers } from 'lucide-react';
-import { useToolbarStore } from '../store/useToolbarStore';
+import React from "react";
+import { useNavigationStore } from "../store/useNavigationStore";
+import { Card } from "../components/common/Card";
+import { Button } from "../components/common/Button";
+import { Plus, Search, Filter, Printer, Download, Layers } from "lucide-react";
+import { useToolbarStore } from "../store/useToolbarStore";
 
 export function PlaceholderPage() {
-  const { activeModuleTitle, activeCategory, activeModuleId } = useNavigationStore();
+  const { activeModuleTitle, activeCategory, activeModuleId } =
+    useNavigationStore();
   const { triggerAction } = useToolbarStore();
 
   return (
@@ -16,26 +17,16 @@ export function PlaceholderPage() {
         <div className="flex items-center gap-2">
           <Layers className="w-5 h-5 text-[#2563EB]" />
           <div>
-            <h3 className="text-xs font-bold text-[#0F172A]">{activeModuleTitle} Module</h3>
+            <h3 className="text-xs font-bold text-[#0F172A]">
+              {activeModuleTitle} Module
+            </h3>
             <p className="text-[11px] text-[#64748B]">
-              Module Key: <code className="bg-[#F1F5F9] px-1 py-0.5 rounded text-[#2563EB]">{activeModuleId}</code>
+              Module Key:{" "}
+              <code className="bg-[#F1F5F9] px-1 py-0.5 rounded text-[#2563EB]">
+                {activeModuleId}
+              </code>
             </p>
           </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button variant="primary" icon={Plus} onClick={() => triggerAction('insert')}>
-            New Record (Ctrl+N)
-          </Button>
-          <Button variant="outline" icon={Filter}>
-            Filter
-          </Button>
-          <Button variant="outline" icon={Printer}>
-            Print
-          </Button>
-          <Button variant="outline" icon={Download}>
-            Export
-          </Button>
         </div>
       </div>
 
@@ -49,14 +40,6 @@ export function PlaceholderPage() {
             <h4 className="text-sm font-bold text-[#0F172A]">
               {activeCategory} — {activeModuleTitle}
             </h4>
-            <p className="text-xs text-[#64748B]">
-              Phase 1 application shell and navigation bridge ready. Data models and business logic for this ERP module will be extended in Phase 2.
-            </p>
-          </div>
-          <div className="pt-2 flex items-center justify-center gap-2">
-            <Button variant="secondary" icon={Search} onClick={() => triggerAction('query')}>
-              Query Master Records
-            </Button>
           </div>
         </div>
       </Card>
