@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-primary: #40403e;
+    --color-primary-dark: #1d4ed8;
+    --color-secondary: #3b82f6;
+    --color-light-blue: #eff6ff;
+    --color-app-bg: #f8fafc;
+    --color-white: #ffffff;
+    --color-border: #e2e8f0;
+    --color-text-primary: #0f172a;
+    --color-text-secondary: #475569;
+    --color-text-muted: #64748b;
+    --color-success: #16a34a;
+    --color-danger: #dc2626;
+    --color-warning: #d97706;
+  }
+
+  body {
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--color-app-bg);
+    color: var(--color-text-primary);
+    font-size: 13px;
+    line-height: 1.4;
+    user-select: none;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* Custom compact ERP high-density styling */
+.erp-table-th {
+  background-color: #f1f5f9;
+  color: #334155;
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  padding: 6px 10px;
+  border-bottom: 2px solid #e2e8f0;
+  border-right: 1px solid #e2e8f0;
+}
+
+.erp-table-td {
+  padding: 5px 10px;
+  border-bottom: 1px solid #e2e8f0;
+  border-right: 1px solid #f1f5f9;
+  font-size: 12.5px;
+  color: #0f172a;
+}
+
+.erp-table-row:hover {
+  background-color: #f0f7ff;
+}
+
+.erp-table-row.selected {
+  background-color: #e0f2fe;
+}
+
+/* Scrollbar styling for high-density Windows application look */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
