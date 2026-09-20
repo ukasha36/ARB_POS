@@ -880,7 +880,7 @@ class ReportRepository extends BaseRepository {
 
     // 2. Sales Returns: Debit lines to REVENUE accounts from SALES_RETURN
     let returnSql = `
-      SELECT COALESCE(SUM(ll.amount), 0.00) as sales_returns
+      SELECT ABS(COALESCE(SUM(ll.amount), 0.00)) as sales_returns
       FROM master_entries me
       JOIN ledger_lines ll ON me.id = ll.entry_id
       JOIN accounts a ON ll.account_id = a.id
@@ -918,7 +918,7 @@ class ReportRepository extends BaseRepository {
     const cogsSold = Number(db.prepare(cogsSoldSql).get(...cogsSoldParams)?.cogs_sold || 0);
 
     let cogsReturnSql = `
-      SELECT COALESCE(SUM(it.total_cost), 0.00) as cogs_returned
+      SELECT ABS(COALESCE(SUM(it.total_cost), 0.00)) as cogs_returned
       FROM master_entries me
       JOIN inventory_transactions it ON me.id = it.entry_id
       WHERE me.entry_type = 'SALES_RETURN' AND me.status = 'POSTED' AND it.transaction_type = 'SALES_RETURN'

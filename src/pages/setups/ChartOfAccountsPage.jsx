@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   FileText,
   Save,
@@ -8,54 +8,59 @@ import {
   Check,
   AlertCircle,
   Building2,
-} from 'lucide-react';
-import { AccountQuickNav } from '../../components/accounts/AccountQuickNav';
-import { AccountListModal } from '../../components/accounts/AccountListModal';
-import { Button } from '../../components/common/Button';
-import { Modal } from '../../components/common/Modal';
-import { api } from '../../services/api';
-import { useToolbarStore } from '../../store/useToolbarStore';
-import { formatCurrency } from '../../utils/formatters';
+} from "lucide-react";
+import { AccountQuickNav } from "../../components/accounts/AccountQuickNav";
+import { AccountListModal } from "../../components/accounts/AccountListModal";
+import { Button } from "../../components/common/Button";
+import { Modal } from "../../components/common/Modal";
+import { api } from "../../services/api";
+import { useToolbarStore } from "../../store/useToolbarStore";
+import { formatCurrency } from "../../utils/formatters";
 
 export function ChartOfAccountsPage() {
   const { triggerAction } = useToolbarStore();
 
   const initialFormState = {
     id: null,
-    code: '',
-    title: '',
-    account_type: 'CUSTOMER',
+    code: "",
+    title: "",
+    account_type: "CUSTOMER",
     purchase_enabled: false,
     sale_enabled: true,
-    opening_balance: 0.00,
-    opening_balance_type: 'Dr',
-    opening_date: new Date().toISOString().split('T')[0],
-    address_1: '',
-    address_2: '',
-    telephone_1: '',
-    telephone_2: '',
-    fax: '',
-    mobile: '',
-    gst_number: '',
-    ntn_number: '',
-    remarks: '',
-    area_id: '',
-    sub_area_id: '',
-    note_head_id: '',
-    salesman_id: '',
-    booker_id: '',
-    item_category_id: '',
-    category_id: '',
-    credit_limit: 0.00,
+    opening_balance: 0.0,
+    opening_balance_type: "Dr",
+    opening_date: new Date().toISOString().split("T")[0],
+    address_1: "",
+    address_2: "",
+    telephone_1: "",
+    telephone_2: "",
+    fax: "",
+    mobile: "",
+    gst_number: "",
+    ntn_number: "",
+    remarks: "",
+    area_id: "",
+    sub_area_id: "",
+    note_head_id: "",
+    salesman_id: "",
+    booker_id: "",
+    item_category_id: "",
+    category_id: "",
+    credit_limit: 0.0,
     aging_days: 0,
-    status: 'Active',
-    short_name: '',
+    status: "Active",
+    short_name: "",
   };
 
   const [formData, setFormData] = useState(initialFormState);
-  const [lookups, setLookups] = useState({ areas: [], subAreas: [], salesmen: [], categories: [] });
+  const [lookups, setLookups] = useState({
+    areas: [],
+    subAreas: [],
+    salesmen: [],
+    categories: [],
+  });
   const [isListModalOpen, setIsListModalOpen] = useState(false);
-  const [currentBalance, setCurrentBalance] = useState(0.00);
+  const [currentBalance, setCurrentBalance] = useState(0.0);
   const [ledgerNotification, setLedgerNotification] = useState(null);
   const [statusMessage, setStatusMessage] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -72,22 +77,25 @@ export function ChartOfAccountsPage() {
         setLookups(res.data);
       }
     } catch (err) {
-      console.error('Failed to load account lookups', err);
+      console.error("Failed to load account lookups", err);
     }
   };
 
   const handleNewRecord = async () => {
     try {
       const res = await api.accounts.getNextCode();
-      const newCode = res.success && res.code ? res.code : '1003';
+      const newCode = res.success && res.code ? res.code : "1003";
       setFormData({
         ...initialFormState,
         code: newCode,
       });
-      setCurrentBalance(0.00);
-      setStatusMessage({ type: 'info', text: `Prepared new account record. Generated Code: ${newCode}` });
+      setCurrentBalance(0.0);
+      setStatusMessage({
+        type: "info",
+        text: `Prepared new account record. Generated Code: ${newCode}`,
+      });
     } catch (err) {
-      setFormData({ ...initialFormState, code: '1003' });
+      setFormData({ ...initialFormState, code: "1003" });
     }
   };
 
@@ -95,7 +103,7 @@ export function ChartOfAccountsPage() {
     const { name, value, type, checked } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value,
+      [name]: type === "checkbox" ? checked : value,
     }));
   };
 
@@ -103,17 +111,25 @@ export function ChartOfAccountsPage() {
     const typeVal = e.target.value;
     let purch = false;
     let sale = false;
-    let drCr = 'Dr';
+    let drCr = "Dr";
 
-    if (typeVal === 'CUSTOMER' || typeVal === 'SALES' || typeVal === 'HANDY_RECEIVABLE') {
+    if (
+      typeVal === "CUSTOMER" ||
+      typeVal === "SALES" ||
+      typeVal === "HANDY_RECEIVABLE"
+    ) {
       sale = true;
     }
-    if (typeVal === 'SUPPLIER' || typeVal === 'PURCHASES' || typeVal === 'HANDY_PAYABLE') {
+    if (
+      typeVal === "SUPPLIER" ||
+      typeVal === "PURCHASES" ||
+      typeVal === "HANDY_PAYABLE"
+    ) {
       purch = true;
-      drCr = 'Cr';
+      drCr = "Cr";
     }
-    if (typeVal === 'CAPITAL' || typeVal === 'REVENUE' || typeVal === 'BANK') {
-      drCr = 'Cr';
+    if (typeVal === "CAPITAL" || typeVal === "REVENUE" || typeVal === "BANK") {
+      drCr = "Cr";
     }
 
     setFormData((prev) => ({
@@ -129,7 +145,10 @@ export function ChartOfAccountsPage() {
     if (e) e.preventDefault();
 
     if (!formData.code || !formData.title || !formData.account_type) {
-      setStatusMessage({ type: 'error', text: 'Validation Error: Code, Title, and Account Type are required.' });
+      setStatusMessage({
+        type: "error",
+        text: "Validation Error: Code, Title, and Account Type are required.",
+      });
       return;
     }
 
@@ -140,16 +159,22 @@ export function ChartOfAccountsPage() {
       const res = await api.accounts.save(formData);
       if (res.success && res.data) {
         setFormData(res.data);
-        setStatusMessage({ type: 'success', text: `Account '${res.data.title}' [${res.data.code}] saved successfully!` });
+        setStatusMessage({
+          type: "success",
+          text: `Account '${res.data.title}' [${res.data.code}] saved successfully!`,
+        });
         if (res.data.id) {
           const balRes = await api.accounts.getBalance(res.data.id);
           if (balRes.success) setCurrentBalance(balRes.balance);
         }
       } else {
-        setStatusMessage({ type: 'error', text: res.error || 'Failed to save account' });
+        setStatusMessage({
+          type: "error",
+          text: res.error || "Failed to save account",
+        });
       }
     } catch (err) {
-      setStatusMessage({ type: 'error', text: err.message });
+      setStatusMessage({ type: "error", text: err.message });
     } finally {
       setSaving(false);
     }
@@ -157,35 +182,48 @@ export function ChartOfAccountsPage() {
 
   const handleDelete = async () => {
     if (!formData.id) {
-      setStatusMessage({ type: 'error', text: 'No existing record selected to delete.' });
+      setStatusMessage({
+        type: "error",
+        text: "No existing record selected to delete.",
+      });
       return;
     }
 
-    if (!window.confirm(`Are you sure you want to delete or deactivate account '${formData.title}'?`)) {
+    if (
+      !window.confirm(
+        `Are you sure you want to delete or deactivate account '${formData.title}'?`,
+      )
+    ) {
       return;
     }
 
     try {
       const res = await api.accounts.delete(formData.id);
       if (res.success) {
-        setStatusMessage({ type: 'success', text: res.message });
+        setStatusMessage({ type: "success", text: res.message });
         handleNewRecord();
       } else {
-        setStatusMessage({ type: 'error', text: res.error || 'Failed to delete account' });
+        setStatusMessage({
+          type: "error",
+          text: res.error || "Failed to delete account",
+        });
       }
     } catch (err) {
-      setStatusMessage({ type: 'error', text: err.message });
+      setStatusMessage({ type: "error", text: err.message });
     }
   };
 
   const handleQuickNav = async (direction) => {
     try {
-      const res = await api.accounts.getQuickNav({ currentCode: formData.code, direction });
+      const res = await api.accounts.getQuickNav({
+        currentCode: formData.code,
+        direction,
+      });
       if (res.success && res.data) {
         loadSelectedAccount(res.data);
       }
     } catch (err) {
-      console.error('QuickNav failed', err);
+      console.error("QuickNav failed", err);
     }
   };
 
@@ -196,57 +234,64 @@ export function ChartOfAccountsPage() {
       if (res.success && res.data && res.data.length > 0) {
         loadSelectedAccount(res.data[0]);
       } else {
-        setStatusMessage({ type: 'error', text: `No account found matching '${term}'` });
+        setStatusMessage({
+          type: "error",
+          text: `No account found matching '${term}'`,
+        });
       }
     } catch (err) {
-      console.error('Search GO failed', err);
+      console.error("Search GO failed", err);
     }
   };
 
   const loadSelectedAccount = async (account) => {
     setFormData({
       id: account.id,
-      code: account.code || '',
-      title: account.title || '',
-      account_type: account.account_type || 'CUSTOMER',
+      code: account.code || "",
+      title: account.title || "",
+      account_type: account.account_type || "CUSTOMER",
       purchase_enabled: Boolean(account.purchase_enabled),
       sale_enabled: Boolean(account.sale_enabled),
-      opening_balance: account.opening_balance || 0.00,
-      opening_balance_type: account.opening_balance_type || 'Dr',
-      opening_date: account.opening_date || new Date().toISOString().split('T')[0],
-      address_1: account.address_1 || '',
-      address_2: account.address_2 || '',
-      telephone_1: account.telephone_1 || '',
-      telephone_2: account.telephone_2 || '',
-      fax: account.fax || '',
-      mobile: account.mobile || '',
-      gst_number: account.gst_number || '',
-      ntn_number: account.ntn_number || '',
-      remarks: account.remarks || '',
-      area_id: account.area_id || '',
-      sub_area_id: account.sub_area_id || '',
-      note_head_id: account.note_head_id || '',
-      salesman_id: account.salesman_id || '',
-      booker_id: account.booker_id || '',
-      item_category_id: account.item_category_id || '',
-      category_id: account.category_id || '',
-      credit_limit: account.credit_limit || 0.00,
+      opening_balance: account.opening_balance || 0.0,
+      opening_balance_type: account.opening_balance_type || "Dr",
+      opening_date:
+        account.opening_date || new Date().toISOString().split("T")[0],
+      address_1: account.address_1 || "",
+      address_2: account.address_2 || "",
+      telephone_1: account.telephone_1 || "",
+      telephone_2: account.telephone_2 || "",
+      fax: account.fax || "",
+      mobile: account.mobile || "",
+      gst_number: account.gst_number || "",
+      ntn_number: account.ntn_number || "",
+      remarks: account.remarks || "",
+      area_id: account.area_id || "",
+      sub_area_id: account.sub_area_id || "",
+      note_head_id: account.note_head_id || "",
+      salesman_id: account.salesman_id || "",
+      booker_id: account.booker_id || "",
+      item_category_id: account.item_category_id || "",
+      category_id: account.category_id || "",
+      credit_limit: account.credit_limit || 0.0,
       aging_days: account.aging_days || 0,
-      status: account.status || 'Active',
-      short_name: account.short_name || '',
+      status: account.status || "Active",
+      short_name: account.short_name || "",
     });
 
     if (account.id) {
       const balRes = await api.accounts.getBalance(account.id);
       if (balRes.success) setCurrentBalance(balRes.balance);
     }
-    setStatusMessage({ type: 'info', text: `Loaded account '${account.title}' [${account.code}]` });
+    setStatusMessage({
+      type: "info",
+      text: `Loaded account '${account.title}' [${account.code}]`,
+    });
   };
 
   const handleOpenLedger = () => {
     setLedgerNotification({
       code: formData.code,
-      title: formData.title || 'Selected Account',
+      title: formData.title || "Selected Account",
       balance: currentBalance,
     });
   };
@@ -269,17 +314,30 @@ export function ChartOfAccountsPage() {
 
         {/* Local Toolbar Actions */}
         <div className="flex items-center gap-1.5">
-          <Button variant="primary" size="sm" icon={Plus} onClick={handleNewRecord}>
+          <Button
+            variant="primary"
+            size="sm"
+            icon={Plus}
+            onClick={handleNewRecord}
+          >
             Insert (Ctrl+N)
           </Button>
-          <Button variant="primary" size="sm" icon={Save} onClick={handleSave} disabled={saving}>
-            {saving ? 'Saving...' : 'Save (Ctrl+S)'}
-          </Button>
-          <Button variant="danger" size="sm" icon={Trash2} onClick={handleDelete} disabled={!formData.id}>
+
+          <Button
+            variant="danger"
+            size="sm"
+            icon={Trash2}
+            onClick={handleDelete}
+            disabled={!formData.id}
+          >
             Delete
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setIsListModalOpen(true)}>
-            List / Query
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsListModalOpen(true)}
+          >
+            View All Accounts
           </Button>
         </div>
       </div>
@@ -295,24 +353,27 @@ export function ChartOfAccountsPage() {
       {statusMessage && (
         <div
           className={`mx-3 px-3 py-1.5 rounded-[3px] text-xs font-semibold flex items-center justify-between border ${
-            statusMessage.type === 'success'
-              ? 'bg-[#DCFCE7] text-[#166534] border-[#86EFAC]'
-              : statusMessage.type === 'error'
-              ? 'bg-[#FEF2F2] text-[#991B1B] border-[#FCA5A5]'
-              : 'bg-[#EFF6FF] text-[#1E40AF] border-[#BFDBFE]'
+            statusMessage.type === "success"
+              ? "bg-[#DCFCE7] text-[#166534] border-[#86EFAC]"
+              : statusMessage.type === "error"
+                ? "bg-[#FEF2F2] text-[#991B1B] border-[#FCA5A5]"
+                : "bg-[#EFF6FF] text-[#1E40AF] border-[#BFDBFE]"
           }`}
         >
           <div className="flex items-center gap-2">
-            {statusMessage.type === 'success' ? (
+            {statusMessage.type === "success" ? (
               <Check className="w-4 h-4 text-[#16A34A]" />
-            ) : statusMessage.type === 'error' ? (
+            ) : statusMessage.type === "error" ? (
               <AlertCircle className="w-4 h-4 text-[#DC2626]" />
             ) : (
               <Building2 className="w-4 h-4 text-[#2563EB]" />
             )}
             <span>{statusMessage.text}</span>
           </div>
-          <button onClick={() => setStatusMessage(null)} className="text-xs font-bold hover:underline">
+          <button
+            onClick={() => setStatusMessage(null)}
+            className="text-xs font-bold hover:underline"
+          >
             Dismiss
           </button>
         </div>
@@ -321,14 +382,20 @@ export function ChartOfAccountsPage() {
       {/* 3. Main Form Grid */}
       <form onSubmit={handleSave} className="flex-1 overflow-y-auto px-3 pb-3">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          
           {/* LEFT SECTION: PRIMARY ACCOUNT DETAILS */}
           <div className="bg-white border border-[#E2E8F0] rounded-[4px] p-3 space-y-3">
             <div className="bg-[#EFF6FF] px-2.5 py-1 rounded-[3px] border border-[#BFDBFE] text-[#1E40AF] font-bold text-xs flex items-center justify-between">
               <span>PRIMARY ACCOUNT DETAILS</span>
               {formData.id && (
                 <span className="text-[11px] font-mono font-normal">
-                  Balance: <strong className={currentBalance >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]'}>{formatCurrency(currentBalance)}</strong>
+                  Balance:{" "}
+                  <strong
+                    className={
+                      currentBalance >= 0 ? "text-[#16A34A]" : "text-[#DC2626]"
+                    }
+                  >
+                    {formatCurrency(currentBalance)}
+                  </strong>
                 </span>
               )}
             </div>
@@ -352,7 +419,9 @@ export function ChartOfAccountsPage() {
 
               <div className="col-span-8">
                 <label className="block text-[11px] font-bold text-[#475569] uppercase tracking-wider mb-1 flex items-center justify-between">
-                  <span>Title <span className="text-[#DC2626]">*</span></span>
+                  <span>
+                    Title <span className="text-[#DC2626]">*</span>
+                  </span>
                   <button
                     type="button"
                     onClick={handleOpenLedger}
@@ -455,7 +524,7 @@ export function ChartOfAccountsPage() {
                       type="radio"
                       name="opening_balance_type"
                       value="Dr"
-                      checked={formData.opening_balance_type === 'Dr'}
+                      checked={formData.opening_balance_type === "Dr"}
                       onChange={handleInputChange}
                     />
                     <span>Dr</span>
@@ -465,7 +534,7 @@ export function ChartOfAccountsPage() {
                       type="radio"
                       name="opening_balance_type"
                       value="Cr"
-                      checked={formData.opening_balance_type === 'Cr'}
+                      checked={formData.opening_balance_type === "Cr"}
                       onChange={handleInputChange}
                     />
                     <span>Cr</span>
@@ -492,10 +561,12 @@ export function ChartOfAccountsPage() {
               <span className="text-[11px] font-bold text-[#1E40AF] uppercase tracking-wider block border-b border-[#E2E8F0] pb-1">
                 CONTACT DETAILS & ADDRESS
               </span>
-              
+
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-[10px] font-semibold text-[#64748B]">Address 1</label>
+                  <label className="block text-[10px] font-semibold text-[#64748B]">
+                    Address 1
+                  </label>
                   <input
                     type="text"
                     name="address_1"
@@ -506,7 +577,9 @@ export function ChartOfAccountsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-semibold text-[#64748B]">Address 2</label>
+                  <label className="block text-[10px] font-semibold text-[#64748B]">
+                    Address 2
+                  </label>
                   <input
                     type="text"
                     name="address_2"
@@ -520,7 +593,9 @@ export function ChartOfAccountsPage() {
 
               <div className="grid grid-cols-4 gap-2">
                 <div>
-                  <label className="block text-[10px] font-semibold text-[#64748B]">Telephone 1</label>
+                  <label className="block text-[10px] font-semibold text-[#64748B]">
+                    Telephone 1
+                  </label>
                   <input
                     type="text"
                     name="telephone_1"
@@ -531,7 +606,9 @@ export function ChartOfAccountsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-semibold text-[#64748B]">Telephone 2</label>
+                  <label className="block text-[10px] font-semibold text-[#64748B]">
+                    Telephone 2
+                  </label>
                   <input
                     type="text"
                     name="telephone_2"
@@ -542,7 +619,9 @@ export function ChartOfAccountsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-semibold text-[#64748B]">Mobile</label>
+                  <label className="block text-[10px] font-semibold text-[#64748B]">
+                    Mobile
+                  </label>
                   <input
                     type="text"
                     name="mobile"
@@ -553,7 +632,9 @@ export function ChartOfAccountsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-semibold text-[#64748B]">Fax</label>
+                  <label className="block text-[10px] font-semibold text-[#64748B]">
+                    Fax
+                  </label>
                   <input
                     type="text"
                     name="fax"
@@ -567,7 +648,9 @@ export function ChartOfAccountsPage() {
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-[10px] font-semibold text-[#64748B]">GST #</label>
+                  <label className="block text-[10px] font-semibold text-[#64748B]">
+                    GST #
+                  </label>
                   <input
                     type="text"
                     name="gst_number"
@@ -578,7 +661,9 @@ export function ChartOfAccountsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-semibold text-[#64748B]">NTN #</label>
+                  <label className="block text-[10px] font-semibold text-[#64748B]">
+                    NTN #
+                  </label>
                   <input
                     type="text"
                     name="ntn_number"
@@ -591,7 +676,9 @@ export function ChartOfAccountsPage() {
               </div>
 
               <div>
-                <label className="block text-[10px] font-semibold text-[#64748B]">Remarks</label>
+                <label className="block text-[10px] font-semibold text-[#64748B]">
+                  Remarks
+                </label>
                 <input
                   type="text"
                   name="remarks"
@@ -796,12 +883,17 @@ export function ChartOfAccountsPage() {
               <Button variant="outline" size="sm" onClick={handleNewRecord}>
                 Reset / Abort
               </Button>
-              <Button variant="primary" size="md" icon={Save} onClick={handleSave} disabled={saving}>
-                {saving ? 'Saving...' : 'Save Account Master'}
+              <Button
+                variant="primary"
+                size="md"
+                icon={Save}
+                onClick={handleSave}
+                disabled={saving}
+              >
+                {saving ? "Saving..." : "Save Account "}
               </Button>
             </div>
           </div>
-
         </div>
       </form>
 
@@ -824,20 +916,33 @@ export function ChartOfAccountsPage() {
             <div className="bg-[#EFF6FF] p-3 rounded border border-[#BFDBFE] flex items-center gap-3">
               <BookOpen className="w-6 h-6 text-[#2563EB]" />
               <div>
-                <h4 className="font-bold text-xs text-[#0F172A]">{ledgerNotification.title}</h4>
+                <h4 className="font-bold text-xs text-[#0F172A]">
+                  {ledgerNotification.title}
+                </h4>
                 <p className="text-[11px] text-[#64748B]">
-                  Account Code: <code className="font-mono text-[#2563EB]">{ledgerNotification.code}</code>
+                  Account Code:{" "}
+                  <code className="font-mono text-[#2563EB]">
+                    {ledgerNotification.code}
+                  </code>
                 </p>
                 <p className="text-[11px] text-[#0F172A] font-medium mt-1">
-                  Current Net Balance: <strong className="font-mono">{formatCurrency(ledgerNotification.balance)}</strong>
+                  Current Net Balance:{" "}
+                  <strong className="font-mono">
+                    {formatCurrency(ledgerNotification.balance)}
+                  </strong>
                 </p>
               </div>
             </div>
             <p className="text-xs text-[#475569]">
-              Detailed statement & ledger transaction line breakdown will be available in Phase 3.
+              Detailed statement & ledger transaction line breakdown will be
+              available in Phase 3.
             </p>
             <div className="flex justify-end">
-              <Button variant="primary" size="sm" onClick={() => setLedgerNotification(null)}>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setLedgerNotification(null)}
+              >
                 OK
               </Button>
             </div>

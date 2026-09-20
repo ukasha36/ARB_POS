@@ -46,6 +46,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     stockValuation: (params) => ipcRenderer.invoke('reports:stockValuation', params),
     stockAnalytics: () => ipcRenderer.invoke('reports:stockAnalytics'),
   },
+  pdf: {
+    generateCustomerStatement: (params) => ipcRenderer.invoke('pdf:customerStatement', params),
+    generateSupplierStatement: (params) => ipcRenderer.invoke('pdf:supplierStatement', params),
+  },
   app: {
     close: () => ipcRenderer.send('app:close'),
     minimize: () => ipcRenderer.send('app:minimize'),

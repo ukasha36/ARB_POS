@@ -49,8 +49,10 @@ export function ProfitReportPage() {
   const netProfit = data?.netProfit ?? 0;
   const closingStock = data?.closingStockValuation ?? 0;
 
-  const isPositiveGP = Number(grossProfit) >= 0;
-  const isPositiveNP = Number(netProfit) >= 0;
+  const grossProfitValue = Number(grossProfit) || 0;
+  const netProfitValue = Number(netProfit) || 0;
+  const isPositiveGP = grossProfitValue >= 0;
+  const isPositiveNP = netProfitValue >= 0;
 
   return (
     <div className="space-y-3 select-none">
@@ -188,13 +190,15 @@ export function ProfitReportPage() {
                   : 'bg-[#FFF1F2] border-[#FECDD3]'
               }`}
             >
-              <span className="text-xs font-bold text-[#0F172A] uppercase tracking-wider">Gross Profit</span>
+              <span className="text-xs font-bold text-[#0F172A] uppercase tracking-wider">
+                {isPositiveGP ? 'Gross Profit' : 'Gross Loss'}
+              </span>
               <span
                 className={`font-mono text-base font-bold ${
                   isPositiveGP ? 'text-[#16A34A]' : 'text-[#DC2626]'
                 }`}
               >
-                {formatCurrency(grossProfit)}
+                {formatCurrency(Math.abs(grossProfitValue))}
               </span>
             </div>
 
@@ -236,7 +240,7 @@ export function ProfitReportPage() {
             >
               <div>
                 <span className="text-sm font-bold text-[#0F172A] uppercase tracking-wider">
-                  {isPositiveNP ? 'Net Profit' : 'Net Loss'}
+                  {isPositiveNP ? 'NET PROFIT' : 'NET LOSS'}
                 </span>
                 <p className="text-[10px] text-[#64748B] mt-0.5">Gross Profit less Total Operating Expenses</p>
               </div>
@@ -245,7 +249,7 @@ export function ProfitReportPage() {
                   isPositiveNP ? 'text-[#16A34A]' : 'text-[#DC2626]'
                 }`}
               >
-                {formatCurrency(netProfit)}
+                {formatCurrency(Math.abs(netProfitValue))}
               </span>
             </div>
 
@@ -271,6 +275,7 @@ export function ProfitReportPage() {
 
 /* ─── Sub-component: single P&L line row ───────────────────────── */
 function PLRow({ label, subLabel, value, isDeduction = false }) {
+  const numericValue = Math.abs(Number(value) || 0);
   return (
     <div className="flex items-center justify-between px-3 py-2">
       <div>
@@ -284,9 +289,9 @@ function PLRow({ label, subLabel, value, isDeduction = false }) {
           isDeduction ? 'text-[#DC2626]' : 'text-[#0F172A]'
         }`}
       >
-        {isDeduction && value > 0 ? '(' : ''}
-        {formatCurrency(value)}
-        {isDeduction && value > 0 ? ')' : ''}
+        {isDeduction && numericValue > 0 ? '(' : ''}
+        {formatCurrency(numericValue)}
+        {isDeduction && numericValue > 0 ? ')' : ''}
       </span>
     </div>
   );

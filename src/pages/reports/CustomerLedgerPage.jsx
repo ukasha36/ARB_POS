@@ -8,6 +8,8 @@ import {
   ArrowDownLeft,
   RotateCcw,
   RefreshCw,
+  Download,
+  Printer,
 } from 'lucide-react';
 import {
   useReactTable,
@@ -31,6 +33,8 @@ export function CustomerLedgerPage() {
     records: [],
   });
   const [loading, setLoading] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfStatus, setPdfStatus] = useState(null);
 
   const loadCustomers = async () => {
     try {
@@ -76,6 +80,62 @@ export function CustomerLedgerPage() {
   const handleFilterSubmit = (e) => {
     e.preventDefault();
     loadCustomerLedger();
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!selectedCustomerId) {
+      setPdfStatus({ type: 'error', message: 'Please select a customer first.' });
+      return;
+    }
+    setPdfLoading(true);
+    setPdfStatus(null);
+    try {
+      const res = await api.pdf.generateCustomerStatement({
+        partyId: selectedCustomerId,
+        dateFrom: dateFrom || null,
+        dateTo: dateTo || null,
+        action: 'save',
+      });
+      if (res.success) {
+        if (res.data?.canceled) {
+          setPdfStatus({ type: 'info', message: 'Save cancelled.' });
+        } else {
+          setPdfStatus({ type: 'success', message: 'Customer statement PDF saved successfully.' });
+        }
+      } else {
+        setPdfStatus({ type: 'error', message: res.error || 'Failed to generate PDF.' });
+      }
+    } catch (err) {
+      setPdfStatus({ type: 'error', message: err.message || 'Failed to generate PDF.' });
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
+  const handlePrintPdf = async () => {
+    if (!selectedCustomerId) {
+      setPdfStatus({ type: 'error', message: 'Please select a customer first.' });
+      return;
+    }
+    setPdfLoading(true);
+    setPdfStatus(null);
+    try {
+      const res = await api.pdf.generateCustomerStatement({
+        partyId: selectedCustomerId,
+        dateFrom: dateFrom || null,
+        dateTo: dateTo || null,
+        action: 'print',
+      });
+      if (res.success) {
+        setPdfStatus({ type: 'success', message: 'Print dialog opened.' });
+      } else {
+        setPdfStatus({ type: 'error', message: res.error || 'Failed to print PDF.' });
+      }
+    } catch (err) {
+      setPdfStatus({ type: 'error', message: err.message || 'Failed to print PDF.' });
+    } finally {
+      setPdfLoading(false);
+    }
   };
 
   const columns = useMemo(
@@ -237,7 +297,42 @@ export function CustomerLedgerPage() {
         >
           View Statement
         </button>
+
+        <button
+          type="button"
+          onClick={handleDownloadPdf}
+          disabled={pdfLoading}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#16A34A] text-white text-xs font-bold rounded-[3px] hover:bg-[#15803D] disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          <Download className="w-3.5 h-3.5" />
+          <span>{pdfLoading ? 'Generating...' : 'Download PDF'}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={handlePrintPdf}
+          disabled={pdfLoading}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#7C3AED] text-white text-xs font-bold rounded-[3px] hover:bg-[#5B21B6] disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          <Printer className="w-3.5 h-3.5" />
+          <span>Print</span>
+        </button>
       </form>
+
+      {/* PDF Status Message */}
+      {pdfStatus && (
+        <div
+          className={`p-2.5 rounded-[3px] border text-xs ${
+            pdfStatus.type === 'error'
+              ? 'bg-[#FEF2F2] border-[#FECACA] text-[#991B1B]'
+              : pdfStatus.type === 'success'
+              ? 'bg-[#ECFDF5] border-[#BBF7D0] text-[#065F46]'
+              : 'bg-[#EFF6FF] border-[#BFDBFE] text-[#1E40AF]'
+          }`}
+        >
+          {pdfStatus.message}
+        </div>
+      )}
 
       {/* Customer Profile & Statement Summary */}
       <div className="grid grid-cols-4 gap-3">

@@ -5,6 +5,7 @@ const registerAccountIpc = require('./accountIpc');
 const registerItemIpc = require('./itemIpc');
 const registerTransactionIpc = require('./transactionIpc');
 const registerReportIpc = require('./reportIpc');
+const registerPdfIpc = require('./pdfIpc');
 const registerSetupIpc = require('./setupIpc');
 
 function registerIpcHandlers() {
@@ -18,6 +19,7 @@ function registerIpcHandlers() {
   registerItemIpc();
   registerTransactionIpc();
   registerReportIpc();
+  registerPdfIpc();
 
   // 3. Register Phase 3 Setup IPC handlers (areas, subAreas, salesmen, suppliers, wac)
   registerSetupIpc();

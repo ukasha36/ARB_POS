@@ -137,12 +137,12 @@ export function Sidebar() {
           category: "DAILY OPERATIONS",
           icon: Receipt,
         },
-        {
-          id: "ops-offer-list",
-          title: "Offer List",
-          category: "DAILY OPERATIONS",
-          icon: Tag,
-        },
+        // {
+        //   id: "ops-offer-list",
+        //   title: "Offer List",
+        //   category: "DAILY OPERATIONS",
+        //   icon: Tag,
+        // },
       ],
     },
     {
@@ -152,6 +152,30 @@ export function Sidebar() {
         {
           id: "rep-accounts",
           title: "Accounts",
+          category: "REPORTS",
+          icon: FileSpreadsheet,
+        },
+        {
+          id: "rep-general-ledger",
+          title: "General Ledger",
+          category: "REPORTS",
+          icon: FileSpreadsheet,
+        },
+        {
+          id: "rep-customer-ledger",
+          title: "Customer Ledger (Receivable)",
+          category: "REPORTS",
+          icon: Users, // already imported
+        },
+        {
+          id: "rep-supplier-ledger",
+          title: "Supplier Ledger (Payable)",
+          category: "REPORTS",
+          icon: Building2, // already imported
+        },
+        {
+          id: "rep-account-statement",
+          title: "Account Statement",
           category: "REPORTS",
           icon: FileSpreadsheet,
         },
@@ -296,14 +320,16 @@ export function Sidebar() {
         <div className="flex items-center justify-between p-1.5 bg-white border border-[#E2E8F0] rounded-[4px] shadow-2xs">
           <div className="flex items-center gap-2 overflow-hidden">
             <div className="w-7 h-7 rounded bg-[#EFF6FF] text-[#2563EB] flex items-center justify-center font-bold text-xs shrink-0 border border-[#BFDBFE]">
-              {currentUser?.displayName ? currentUser.displayName[0].toUpperCase() : 'U'}
+              {currentUser?.displayName
+                ? currentUser.displayName[0].toUpperCase()
+                : "U"}
             </div>
             <div className="overflow-hidden leading-tight">
               <div className="text-[11px] font-bold text-[#0F172A] truncate">
-                {currentUser?.displayName || 'ARB Communication'}
+                {currentUser?.displayName || "ARB Communication"}
               </div>
               <div className="text-[10px] text-[#64748B] truncate">
-                @{currentUser?.username || 'admin'}
+                @{currentUser?.username || "admin"}
               </div>
             </div>
           </div>

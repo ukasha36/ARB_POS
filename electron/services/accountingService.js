@@ -2,6 +2,72 @@ const { getDb } = require('../database');
 const ledgerRepository = require('../repositories/ledgerRepository');
 const itemRepository = require('../repositories/itemRepository');
 
+function roundMoney(value) {
+  return Math.round((Number(value) || 0) * 100) / 100;
+}
+
+function validateLedgerBalance(debitLines, creditLines) {
+  const totalDebit = roundMoney(debitLines.reduce((sum, line) => sum + (Number(line.amount) || 0), 0));
+  const totalCredit = roundMoney(creditLines.reduce((sum, line) => sum + (Number(line.amount) || 0), 0));
+
+  if (totalDebit !== totalCredit) {
+    throw new Error(
+      `Unbalanced double-entry transaction! Total Debits (Rs. ${totalDebit.toFixed(2)}) does not equal Total Credits (Rs. ${totalCredit.toFixed(2)}).`
+    );
+  }
+}
+
+function validateLedgerLines(lines, type) {
+  for (const line of lines) {
+    if (!line.account_id || !Number.isFinite(Number(line.amount)) || Number(line.amount) <= 0) {
+      throw new Error(`Invalid ${type} ledger line: account_id and positive amount required`);
+    }
+  }
+}
+
+function ensureSystemAccount(db, code, title, accountType) {
+  const existing = db.prepare('SELECT id FROM accounts WHERE code = ?').get(code);
+  if (existing) {
+    return existing;
+  }
+
+  const info = db.prepare(`
+    INSERT INTO accounts (code, title, account_type, status, created_at, updated_at)
+    VALUES (?, ?, ?, 'Active', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+  `).run(code, title, accountType);
+
+  return { id: info.lastInsertRowid };
+}
+
+function getCustomerReceivableBalance(db, customerId) {
+  const account = db.prepare(`
+    SELECT opening_balance, opening_balance_type
+    FROM accounts
+    WHERE id = ? AND account_type = 'CUSTOMER'
+  `).get(customerId);
+
+  if (!account) {
+    return null;
+  }
+
+  const openingBalance = Number(account.opening_balance_type) === 'Cr'
+    ? -Number(account.opening_balance || 0)
+    : Number(account.opening_balance || 0);
+
+  const totals = db.prepare(`
+    SELECT
+      COALESCE(SUM(CASE WHEN ll.type = 'debit' THEN ll.amount ELSE 0 END), 0) AS total_debit,
+      COALESCE(SUM(CASE WHEN ll.type = 'credit' THEN ll.amount ELSE 0 END), 0) AS total_credit
+    FROM ledger_lines ll
+    INNER JOIN master_entries me ON me.id = ll.entry_id AND me.status = 'POSTED'
+    WHERE ll.account_id = ?
+  `).get(customerId);
+
+  return roundMoney(
+    openingBalance + Number(totals.total_debit || 0) - Number(totals.total_credit || 0)
+  );
+}
+
 class AccountingService {
   postTransaction(params) {
     let {

@@ -183,4 +183,15 @@ export const api = {
       return { success: true, data: { categoryValuation: [], fastMovingItems: [], lowStockItems: [] } };
     },
   },
+
+  pdf: {
+    generateCustomerStatement: async (params) => {
+      if (hasElectron) return await window.electronAPI.pdf.generateCustomerStatement(params);
+      return { success: false, error: 'PDF export requires the Electron desktop application.' };
+    },
+    generateSupplierStatement: async (params) => {
+      if (hasElectron) return await window.electronAPI.pdf.generateSupplierStatement(params);
+      return { success: false, error: 'PDF export requires the Electron desktop application.' };
+    },
+  },
 };
