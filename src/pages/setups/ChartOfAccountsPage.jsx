@@ -795,9 +795,16 @@ export function ChartOfAccountsPage() {
                   <label className="block text-[11px] font-bold text-[#475569] uppercase tracking-wider mb-1">
                     Category
                   </label>
-                  <select
+                  <input
+                    type="text"
                     name="category_id"
                     value={formData.category_id}
+                    onChange={handleInputChange}
+                    placeholder="Category"
+                    className="w-full px-2 py-1 text-xs bg-white border border-[#CBD5E1] rounded-[3px]"
+                  />
+                  {/* <select
+                    name="category_id"
                     onChange={handleInputChange}
                     className="w-full px-2 py-1 text-xs bg-white border border-[#CBD5E1] rounded-[3px]"
                   >
@@ -807,7 +814,7 @@ export function ChartOfAccountsPage() {
                         {c.name}
                       </option>
                     ))}
-                  </select>
+                  </select> */}
                 </div>
               </div>
 

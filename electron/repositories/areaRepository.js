@@ -4,35 +4,6 @@
 
 const db = require("../database/connection").getDb();
 
-function ensureStatusColumn() {
-  try {
-    const columns = db.prepare("PRAGMA table_info(setup_areas)").all();
-    const hasStatus = columns.some((c) => c.name === "status");
-    if (!hasStatus) {
-      db.exec(
-        "ALTER TABLE setup_areas ADD COLUMN status TEXT NOT NULL DEFAULT 'Active'",
-      );
-    }
-    const hasCreated = columns.some((c) => c.name === "created_at");
-    if (!hasCreated) {
-      db.exec(
-        "ALTER TABLE setup_areas ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP",
-      );
-    }
-    const hasUpdated = columns.some((c) => c.name === "updated_at");
-    if (!hasUpdated) {
-      db.exec(
-        "ALTER TABLE setup_areas ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP",
-      );
-    }
-  } catch (err) {
-    console.warn("[areaRepository] ensureStatusColumn warning:", err.message);
-  }
-}
-
-// Ensure the schema is ready for area operations
-ensureStatusColumn();
-
 /**
  * List all areas, optionally filtered by active status.
  * @param {Object} [options]

@@ -5,26 +5,6 @@
 const { getDb } = require('../database/connection');
 
 /**
- * Ensure the status column exists on setup_sub_areas (safe migration for existing databases).
- */
-function ensureStatusColumn() {
-  const db = getDb();
-  try {
-    const columns = db.prepare('PRAGMA table_info(setup_sub_areas)').all();
-    const hasStatus = columns.some((c) => c.name === 'status');
-    if (!hasStatus) {
-      db.exec("ALTER TABLE setup_sub_areas ADD COLUMN status TEXT NOT NULL DEFAULT 'Active';");
-    }
-  } catch (err) {
-    // Column already exists or table not yet created — safe to ignore
-    console.warn('[subAreaRepository] ensureStatusColumn warning:', err.message);
-  }
-}
-
-// Run column guard immediately on module load
-ensureStatusColumn();
-
-/**
  * List sub-areas, optionally filtered by areaId and/or active status.
  * Joins setup_areas to include area_name.
  * @param {Object} [options]

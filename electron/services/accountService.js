@@ -1,5 +1,13 @@
 const accountRepository = require('../repositories/accountRepository');
 
+function sanitizeFk(val) {
+  if (val === null || val === undefined || val === '' || val === '0' || val === 0) return null;
+  const parsed = parseInt(val, 10);
+  return isNaN(parsed) ? null : parsed;
+}
+
+const FK_FIELDS = ['area_id', 'sub_area_id', 'note_head_id', 'salesman_id', 'booker_id', 'item_category_id', 'category_id'];
+
 class AccountService {
   getAccounts(filters) {
     return accountRepository.findAll(filters);
@@ -34,7 +42,14 @@ class AccountService {
       }
     }
 
-    return accountRepository.saveAccount(data);
+    const sanitizedData = { ...data };
+    for (const field of FK_FIELDS) {
+      if (sanitizedData[field] !== undefined) {
+        sanitizedData[field] = sanitizeFk(sanitizedData[field]);
+      }
+    }
+
+    return accountRepository.saveAccount(sanitizedData);
   }
 
   deleteAccount(id) {

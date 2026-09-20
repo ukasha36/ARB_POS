@@ -1,5 +1,11 @@
 const BaseRepository = require('./baseRepository');
 
+function sanitizeFk(val) {
+  if (val === null || val === undefined || val === '' || val === '0' || val === 0) return null;
+  const parsed = parseInt(val, 10);
+  return isNaN(parsed) ? null : parsed;
+}
+
 class AccountRepository extends BaseRepository {
   constructor() {
     super('accounts');
@@ -112,8 +118,8 @@ class AccountRepository extends BaseRepository {
         code, title, account_type, purchase_enabled ? 1 : 0, sale_enabled ? 1 : 0,
         opening_balance, opening_balance_type, opening_date,
         address_1, address_2, telephone_1, telephone_2, fax, mobile,
-        gst_number, ntn_number, remarks, area_id || null, sub_area_id || null,
-        note_head_id || null, salesman_id || null, booker_id || null, item_category_id || null, category_id || null,
+        gst_number, ntn_number, remarks, sanitizeFk(area_id), sanitizeFk(sub_area_id),
+        sanitizeFk(note_head_id), sanitizeFk(salesman_id), sanitizeFk(booker_id), sanitizeFk(item_category_id), sanitizeFk(category_id),
         credit_limit, aging_days, status, short_name,
         id
       );
@@ -141,8 +147,8 @@ class AccountRepository extends BaseRepository {
         code, title, account_type, purchase_enabled ? 1 : 0, sale_enabled ? 1 : 0,
         opening_balance, opening_balance_type, opening_date,
         address_1, address_2, telephone_1, telephone_2, fax, mobile,
-        gst_number, ntn_number, remarks, area_id || null, sub_area_id || null,
-        note_head_id || null, salesman_id || null, booker_id || null, item_category_id || null, category_id || null,
+        gst_number, ntn_number, remarks, sanitizeFk(area_id), sanitizeFk(sub_area_id),
+        sanitizeFk(note_head_id), sanitizeFk(salesman_id), sanitizeFk(booker_id), sanitizeFk(item_category_id), sanitizeFk(category_id),
         credit_limit, aging_days, status, short_name
       );
       return this.findById(info.lastInsertRowid);

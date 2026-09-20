@@ -5,25 +5,6 @@
 const { getDb } = require('../database/connection');
 
 /**
- * Ensure the status column exists on setup_salesmen (safe migration for existing databases).
- */
-function ensureStatusColumn() {
-  const db = getDb();
-  try {
-    const columns = db.prepare('PRAGMA table_info(setup_salesmen)').all();
-    const hasStatus = columns.some((c) => c.name === 'status');
-    if (!hasStatus) {
-      db.exec("ALTER TABLE setup_salesmen ADD COLUMN status TEXT NOT NULL DEFAULT 'Active';");
-    }
-  } catch (err) {
-    console.warn('[salesmanRepository] ensureStatusColumn warning:', err.message);
-  }
-}
-
-// Run column guard immediately on module load
-ensureStatusColumn();
-
-/**
  * Determine the next available S-XX code.
  * Scans all existing codes matching S-\d+ and returns the next sequential one.
  * @returns {string}  e.g. "S-03"

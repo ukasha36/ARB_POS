@@ -54,13 +54,17 @@ function runMigrations() {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         area_id INTEGER,
         name TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'Active',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (area_id) REFERENCES setup_areas(id)
       );
 
       CREATE TABLE IF NOT EXISTS setup_salesmen (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT UNIQUE NOT NULL,
-        code TEXT
+        code TEXT,
+        status TEXT NOT NULL DEFAULT 'Active'
       );
 
       CREATE TABLE IF NOT EXISTS setup_categories (
@@ -205,6 +209,28 @@ function runMigrations() {
       "setup_areas",
       "updated_at",
       "DATETIME DEFAULT CURRENT_TIMESTAMP",
+    );
+
+    // Safe Phase 3 column migrations for sub_areas and salesmen
+    addColumnIfNotExists(
+      "setup_sub_areas",
+      "status",
+      "TEXT NOT NULL DEFAULT 'Active'",
+    );
+    addColumnIfNotExists(
+      "setup_sub_areas",
+      "created_at",
+      "DATETIME DEFAULT CURRENT_TIMESTAMP",
+    );
+    addColumnIfNotExists(
+      "setup_sub_areas",
+      "updated_at",
+      "DATETIME DEFAULT CURRENT_TIMESTAMP",
+    );
+    addColumnIfNotExists(
+      "setup_salesmen",
+      "status",
+      "TEXT NOT NULL DEFAULT 'Active'",
     );
 
     addColumnIfNotExists(
