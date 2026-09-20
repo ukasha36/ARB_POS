@@ -255,7 +255,7 @@ function runMigrations() {
       CREATE INDEX IF NOT EXISTS idx_items_status ON items(status);
     `);
 
-    // Backfill defaults for WAC, status, and costs
+    // Backfill defaults for WAC, status, and costs (safe on existing DBs)
     db.prepare(
       `UPDATE items SET current_wac = purchase_price WHERE (current_wac IS NULL OR current_wac = 0.00) AND purchase_price > 0`,
     ).run();
@@ -272,111 +272,55 @@ function runMigrations() {
       `UPDATE inventory_transactions SET total_cost = qty * cost_price WHERE total_cost IS NULL OR total_cost = 0.00`,
     ).run();
 
-    // 10. Seed Default Super User
-    // 10. Seed / Reset Default Super User
+    // ------------------------------------------------------------------
+    // 10. Seed Default Super User ONLY (client delivery — no demo data)
+    // ------------------------------------------------------------------
     const userCount = db
       .prepare("SELECT COUNT(*) as count FROM users")
       .get().count;
 
     if (userCount === 0) {
+      const hashedPassword = bcrypt.hashSync("admin123", 10);
       db.prepare(
         `
-    INSERT INTO users (username, password, display_name, role, is_active)
-    VALUES (?, ?, ?, ?, 1)
-  `,
-      ).run("admin", "admin123", "ARB Communication", "SUPER_ADMIN");
-    } else {
-      // Force reset admin password to plain text "admin123" (temporary for development)
-      db.prepare(
-        `
-    UPDATE users 
-    SET password = 'admin123', 
-        display_name = 'ARB Communication', 
-        role = 'SUPER_ADMIN', 
-        is_active = 1
-    WHERE username = 'admin'
-  `,
-      ).run();
+        INSERT INTO users (username, password, display_name, role, is_active, force_password_change)
+        VALUES (?, ?, ?, ?, 1, 0)
+      `,
+      ).run("admin", hashedPassword, "ARB Communication", "SUPER_ADMIN");
     }
+    // Do NOT reset password on every startup (production / client build)
 
-    // 11. Seed Default Lookups
-    const areaCount = db
-      .prepare("SELECT COUNT(*) as count FROM setup_areas")
-      .get().count;
-    if (areaCount === 0) {
-      db.prepare("INSERT INTO setup_areas (name) VALUES (?)").run("MIX");
-      db.prepare("INSERT INTO setup_areas (name) VALUES (?)").run("MAIN TOWN");
-      db.prepare("INSERT INTO setup_areas (name) VALUES (?)").run(
-        "COMMERCIAL ZONE",
-      );
-    }
+    // ------------------------------------------------------------------
+    // 11. NO demo areas / salesmen / categories
+    // ------------------------------------------------------------------
 
-    const salesmanCount = db
-      .prepare("SELECT COUNT(*) as count FROM setup_salesmen")
-      .get().count;
-    if (salesmanCount === 0) {
-      db.prepare("INSERT INTO setup_salesmen (name, code) VALUES (?, ?)").run(
-        "COUNTER",
-        "S-01",
-      );
-      db.prepare("INSERT INTO setup_salesmen (name, code) VALUES (?, ?)").run(
-        "FIELD AGENT 1",
-        "S-02",
-      );
-    }
-
-    const categoryCount = db
-      .prepare("SELECT COUNT(*) as count FROM setup_categories")
-      .get().count;
-    if (categoryCount === 0) {
-      db.prepare("INSERT INTO setup_categories (name) VALUES (?)").run(
-        "OTHER'S",
-      );
-      db.prepare("INSERT INTO setup_categories (name) VALUES (?)").run(
-        "ELECTRONICS",
-      );
-      db.prepare("INSERT INTO setup_categories (name) VALUES (?)").run(
-        "GENERAL STORE",
-      );
-    }
-
-    // 12. Seed Default System Chart of Accounts if empty
+    // ------------------------------------------------------------------
+    // 12. Minimal system Chart of Accounts only (zero balances, no demo parties)
+    // ------------------------------------------------------------------
     const accountCount = db
       .prepare("SELECT COUNT(*) as count FROM accounts")
       .get().count;
+
     if (accountCount === 0) {
       const insertAccount = db.prepare(`
-        INSERT INTO accounts (code, title, account_type, purchase_enabled, sale_enabled, opening_balance, opening_balance_type, status, short_name)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 'Active', ?)
+        INSERT INTO accounts (
+          code, title, account_type, purchase_enabled, sale_enabled,
+          opening_balance, opening_balance_type, status, short_name
+        )
+        VALUES (?, ?, ?, ?, ?, 0.00, ?, 'Active', ?)
       `);
 
-      insertAccount.run(
-        "1001",
-        "Cash in Hand",
-        "CASH",
-        1,
-        1,
-        100000.0,
-        "Dr",
-        "CASH",
-      );
-      insertAccount.run(
-        "1002",
-        "Meezan Bank - Main Account",
-        "BANK",
-        1,
-        1,
-        500000.0,
-        "Dr",
-        "BANK",
-      );
+      // Cash & Bank
+      insertAccount.run("1001", "Cash in Hand", "CASH", 1, 1, "Dr", "CASH");
+      insertAccount.run("1002", "Bank Account", "BANK", 1, 1, "Dr", "BANK");
+
+      // Generic control accounts (optional; balance 0 — client adds real parties)
       insertAccount.run(
         "1101",
         "General Customer Receivable",
         "CUSTOMER",
         0,
         1,
-        0.0,
         "Dr",
         "CUST_GEN",
       );
@@ -386,17 +330,17 @@ function runMigrations() {
         "SUPPLIER",
         1,
         0,
-        0.0,
         "Cr",
         "SUPP_GEN",
       );
+
+      // Equity / Revenue / Inventory / Expense / COGS
       insertAccount.run(
         "3001",
         "Owner Capital Account",
         "CAPITAL",
         0,
         0,
-        600000.0,
         "Cr",
         "CAPITAL",
       );
@@ -406,7 +350,6 @@ function runMigrations() {
         "REVENUE",
         0,
         1,
-        0.0,
         "Cr",
         "SALES_REV",
       );
@@ -416,7 +359,6 @@ function runMigrations() {
         "PURCHASES",
         1,
         0,
-        0.0,
         "Dr",
         "PURCH_ACC",
       );
@@ -426,7 +368,6 @@ function runMigrations() {
         "EXPENSE",
         0,
         0,
-        0.0,
         "Dr",
         "EXPENSE",
       );
@@ -436,103 +377,20 @@ function runMigrations() {
         "EXPENSE",
         0,
         0,
-        0.0,
         "Dr",
         "COGS",
       );
 
-      // Seed Sample Customers & Suppliers
-      insertAccount.run(
-        "1102",
-        "Al-Madina Traders",
-        "CUSTOMER",
-        0,
-        1,
-        45000.0,
-        "Dr",
-        "AL_MADINA",
+      console.log(
+        "[Database Schema] Seeded minimal system Chart of Accounts (no demo parties).",
       );
-      insertAccount.run(
-        "2002",
-        "Apex Distributors Ltd",
-        "SUPPLIER",
-        1,
-        0,
-        89000.0,
-        "Cr",
-        "APEX_DIST",
-      );
-
-      console.log("[Database Schema] Seeded default Chart of Accounts.");
     }
 
-    // 13. Seed Sample Inventory Items if empty
-    const itemCount = db
-      .prepare("SELECT COUNT(*) as count FROM items")
-      .get().count;
-    if (itemCount === 0) {
-      const insertItem = db.prepare(`
-        INSERT INTO items (code, name, barcode, category, unit_price, purchase_price, stock_qty, opening_stock_qty, opening_cost_price, current_wac, min_stock, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active')
-      `);
+    // ------------------------------------------------------------------
+    // 13. NO sample inventory items
+    // ------------------------------------------------------------------
 
-      insertItem.run(
-        "ITM-001",
-        "Dell Latitude Laptop i7",
-        "890123456001",
-        "ELECTRONICS",
-        1200.0,
-        950.0,
-        15,
-        15,
-        950.0,
-        950.0,
-        5,
-      );
-      insertItem.run(
-        "ITM-002",
-        "Logitech Wireless Mouse",
-        "890123456002",
-        "ELECTRONICS",
-        25.0,
-        15.0,
-        50,
-        50,
-        15.0,
-        15.0,
-        10,
-      );
-      insertItem.run(
-        "ITM-003",
-        "Mechanical Gaming Keyboard",
-        "890123456003",
-        "ELECTRONICS",
-        75.0,
-        45.0,
-        30,
-        30,
-        45.0,
-        45.0,
-        5,
-      );
-      insertItem.run(
-        "ITM-004",
-        "HP LaserJet Toner Cartridge",
-        "890123456004",
-        "SUPPLIES",
-        60.0,
-        40.0,
-        25,
-        25,
-        40.0,
-        40.0,
-        5,
-      );
-
-      console.log("[Database Schema] Seeded default inventory items.");
-    }
-
-    // Seed default system settings
+    // System settings
     db.prepare(
       `
       INSERT OR IGNORE INTO system_settings (key, value)
@@ -547,7 +405,7 @@ function runMigrations() {
   console.log("[Database Schema] Phase 2 Migrations executed successfully.");
 }
 
-// ---------- New: Load Phase 3 migration scripts ----------
+// ---------- Load Phase 3 migration scripts ----------
 function loadPhase3Migrations() {
   const db = getDb();
   const migrationsDir = path.join(__dirname, "migrations");
@@ -564,7 +422,7 @@ function loadPhase3Migrations() {
     const already = db
       .prepare("SELECT 1 FROM _migrations WHERE name = ?")
       .get(migrationName);
-    if (already) return; // skip if executed
+    if (already) return;
     const sql = fs.readFileSync(path.join(migrationsDir, file), "utf8");
     db.exec(sql);
     db.prepare("INSERT INTO _migrations (name) VALUES (?)").run(migrationName);

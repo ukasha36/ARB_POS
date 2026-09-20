@@ -149,12 +149,12 @@ export function Sidebar() {
       key: "REPORTS",
       title: "REPORTS",
       items: [
-        {
-          id: "rep-accounts",
-          title: "Accounts",
-          category: "REPORTS",
-          icon: FileSpreadsheet,
-        },
+        // {
+        //   id: "rep-accounts",
+        //   title: "Accounts",
+        //   category: "REPORTS",
+        //   icon: FileSpreadsheet,
+        // },
         {
           id: "rep-general-ledger",
           title: "General Ledger",

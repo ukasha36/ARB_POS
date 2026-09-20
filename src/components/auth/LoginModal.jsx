@@ -104,13 +104,6 @@ export function LoginModal() {
             </div>
           </div>
 
-          <div className="bg-[#EFF6FF] p-2.5 rounded-[3px] border border-[#BFDBFE] text-[11px] text-[#1E40AF] flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 shrink-0 text-[#2563EB]" />
-            <span>
-              Default credentials populated for Phase 2 system access.
-            </span>
-          </div>
-
           <div className="pt-2 flex items-center justify-end gap-2">
             <Button
               type="submit"
