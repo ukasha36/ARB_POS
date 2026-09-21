@@ -14,3 +14,18 @@ export function formatCurrency(amount) {
 export function formatPKR(amount) {
   return formatCurrency(amount);
 }
+
+const ENTRY_TYPE_LABELS = {
+  HO_INCOMING: "Receipt",
+  HO_OUTGOING: "Payment",
+  SALE: "Sale",
+  PURCHASE: "Purchase",
+  SALES_RETURN: "Sale Return",
+  PURCHASE_RETURN: "Purchase Return",
+  CAPITAL: "Capital",
+};
+
+export function entryTypeLabel(type) {
+  if (!type) return "—";
+  return ENTRY_TYPE_LABELS[type] || type.replace(/_/g, " ");
+}

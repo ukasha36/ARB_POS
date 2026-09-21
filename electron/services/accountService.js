@@ -13,6 +13,10 @@ class AccountService {
     return accountRepository.findAll(filters);
   }
 
+  getAccountsWithBalances(accountType) {
+    return accountRepository.listWithBalances(accountType);
+  }
+
   getAccountById(id) {
     return accountRepository.findById(id);
   }

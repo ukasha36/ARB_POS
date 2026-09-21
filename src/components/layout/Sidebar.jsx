@@ -5,10 +5,8 @@ import {
   Folder,
   LayoutDashboard,
   Users,
-  MapPin,
   Building2,
   Package,
-  UserCheck,
   Sliders,
   Tag,
   Receipt,
@@ -58,16 +56,11 @@ export function Sidebar() {
           category: "SETUPS",
           icon: Users,
         },
-        { id: "setup-area", title: "Area", category: "SETUPS", icon: MapPin },
-        {
-          id: "setup-sub-area",
-          title: "Sub Area",
-          category: "SETUPS",
-          icon: MapPin,
-        },
+        // Area, Sub Area, and Salesmen setup screens simplified per client requirement.
+        // setup-area, setup-sub-area, and setup-salesmen navigation removed from sidebar.
         {
           id: "setup-firm-suppliers",
-          title: "Firm / Suppliers",
+          title: "Suppliers",
           category: "SETUPS",
           icon: Building2,
         },
@@ -76,12 +69,6 @@ export function Sidebar() {
           title: "Items",
           category: "SETUPS",
           icon: Package,
-        },
-        {
-          id: "setup-salesmen",
-          title: "Salesmen",
-          category: "SETUPS",
-          icon: UserCheck,
         },
         {
           id: "setup-weighted-average",
@@ -121,7 +108,7 @@ export function Sidebar() {
         },
         {
           id: "ops-sales-return",
-          title: "Sales Return / Credit Note",
+          title: "Sales Return",
           category: "DAILY OPERATIONS",
           icon: RotateCcw,
         },

@@ -36,6 +36,43 @@ class AccountRepository extends BaseRepository {
     return stmt.all(...params);
   }
 
+  listWithBalances(accountType) {
+    const sql = `
+      SELECT 
+        a.*,
+        COALESCE(SUM(CASE WHEN me.status = 'POSTED' AND ll.type = 'debit' THEN ll.amount ELSE 0 END), 0) as total_debit,
+        COALESCE(SUM(CASE WHEN me.status = 'POSTED' AND ll.type = 'credit' THEN ll.amount ELSE 0 END), 0) as total_credit
+      FROM accounts a
+      LEFT JOIN ledger_lines ll ON a.id = ll.account_id
+      LEFT JOIN master_entries me ON ll.entry_id = me.id
+      WHERE a.account_type = ?
+      GROUP BY a.id
+      ORDER BY a.title ASC
+    `;
+    const rows = this.db.prepare(sql).all(accountType);
+
+    return rows.map((row) => {
+      const opening = row.opening_balance_type === 'Dr'
+        ? Number(row.opening_balance)
+        : -Number(row.opening_balance);
+      const balance = opening + Number(row.total_debit) - Number(row.total_credit);
+      return {
+        id: row.id,
+        code: row.code,
+        title: row.title,
+        account_type: row.account_type,
+        opening_balance: row.opening_balance,
+        opening_balance_type: row.opening_balance_type,
+        balance: Math.round(balance * 100) / 100,
+        mobile: row.mobile,
+        remarks: row.remarks,
+        status: row.status,
+        salesman_id: row.salesman_id,
+        short_name: row.short_name,
+      };
+    });
+  }
+
   findByCode(code) {
     const stmt = this.db.prepare('SELECT * FROM accounts WHERE code = ?');
     return stmt.get(code);

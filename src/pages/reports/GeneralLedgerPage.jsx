@@ -15,7 +15,7 @@ import {
   flexRender,
 } from '@tanstack/react-table';
 import { api } from '../../services/api';
-import { formatCurrency } from '../../utils/formatters';
+import { formatCurrency, entryTypeLabel } from '../../utils/formatters';
 
 export function GeneralLedgerPage() {
   const [records, setRecords] = useState([]);
@@ -96,7 +96,7 @@ export function GeneralLedgerPage() {
       },
       {
         accessorKey: 'reference_no',
-        header: 'Ref / Voucher #',
+        header: 'Bill / Ref #',
         cell: (info) => (
           <span className="font-mono font-bold text-[#0F172A]">{info.getValue() || '—'}</span>
         ),
@@ -106,13 +106,13 @@ export function GeneralLedgerPage() {
         header: 'Type',
         cell: (info) => (
           <span className="px-1.5 py-0.5 rounded bg-[#EFF6FF] text-[#2563EB] border border-[#BFDBFE] text-[10px] font-bold">
-            {info.getValue()?.replace(/_/g, ' ')}
+            {entryTypeLabel(info.getValue())}
           </span>
         ),
       },
       {
         accessorKey: 'account_title',
-        header: 'Account Code & Title',
+        header: 'Account / Party',
         cell: (info) => {
           const row = info.row.original;
           return (
@@ -130,7 +130,7 @@ export function GeneralLedgerPage() {
       },
       {
         accessorKey: 'description',
-        header: 'Narration / Description',
+        header: 'Details',
         cell: (info) => (
           <span className="text-[#475569] text-[11px] block max-w-xs truncate">
             {info.getValue() || '—'}
@@ -139,7 +139,7 @@ export function GeneralLedgerPage() {
       },
       {
         accessorKey: 'debit',
-        header: 'Debit (PKR)',
+        header: 'Debit (Rs.)',
         cell: (info) => {
           const val = Number(info.getValue()) || 0;
           return val > 0 ? (
@@ -153,7 +153,7 @@ export function GeneralLedgerPage() {
       },
       {
         accessorKey: 'credit',
-        header: 'Credit (PKR)',
+        header: 'Credit (Rs.)',
         cell: (info) => {
           const val = Number(info.getValue()) || 0;
           return val > 0 ? (
@@ -167,7 +167,7 @@ export function GeneralLedgerPage() {
       },
       {
         accessorKey: 'running_balance',
-        header: 'Running Balance (PKR)',
+        header: 'Balance (Rs.)',
         cell: (info) => {
           const val = Number(info.getValue()) || 0;
           return (
@@ -190,27 +190,52 @@ export function GeneralLedgerPage() {
   return (
     <div className="space-y-3 select-none">
       {/* Header Banner */}
-      <div className="bg-white p-3 border border-[#E2E8F0] rounded-[4px] flex items-center justify-between">
+      <div className="bg-white p-3 border border-[#E2E8F0] rounded-[4px]">
         <div className="flex items-center gap-2">
           <div className="p-2 bg-[#EFF6FF] rounded text-[#2563EB]">
             <FileSpreadsheet className="w-5 h-5" />
           </div>
           <div>
             <h2 className="text-xs font-bold text-[#0F172A] tracking-wider uppercase">
-              GENERAL LEDGER REPORT
+              All Transactions (General Ledger)
             </h2>
             <p className="text-[11px] text-[#64748B]">
-              Authoritative chronological double-entry ledger with running balances and balanced verification
+              Har sale, purchase, wasool, payment ka poora hisaab — date ke sath.
+              Yeh list sirf dekhne ke liye hai; yahan se edit nahi hota.
             </p>
           </div>
         </div>
+      </div>
+
+      {/* Help Box */}
+      <div className="bg-[#EFF6FF] border border-[#BFDBFE] rounded-[4px] p-3">
+        <p className="text-[11px] font-bold text-[#2563EB] mb-1">
+          Yeh page kya hai?
+        </p>
+        <ul className="text-[11px] text-[#475569] space-y-0.5 list-disc list-inside">
+          <li>App mein jo bhi entry hui (sale, purchase, wasool, payment) woh yahan dikhti hai</li>
+          <li>Har line ek hisaab ki entry hai</li>
+          <li>Total Debits = Total Credits hona chahiye (BALANCED = theek)</li>
+        </ul>
+        <div className="mt-2 text-[10px] text-[#475569]">
+          <p className="font-semibold mb-0.5">Simple words:</p>
+          <ul className="list-disc list-inside space-y-0.5">
+            <li>Sale / Purchase / Receipt / Payment = transaction type</li>
+            <li>Debit column = "In" side ki amount</li>
+            <li>Credit column = "Out" side ki amount</li>
+            <li>Running Balance = us account ka chalta balance (advanced users ke liye)</li>
+          </ul>
+        </div>
+      </div>
+
+      <div className="flex justify-end">
         <button
           onClick={loadLedger}
           disabled={loading}
           className="flex items-center gap-1.5 px-3 py-1.5 bg-[#EFF6FF] text-[#2563EB] border border-[#BFDBFE] hover:bg-[#DBEAFE] rounded-[3px] text-xs font-semibold"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          <span>Refresh Ledger</span>
+          <span>Refresh</span>
         </button>
       </div>
 
@@ -218,29 +243,35 @@ export function GeneralLedgerPage() {
       <div className="grid grid-cols-3 gap-3">
         <div className="bg-white p-3 border border-[#E2E8F0] rounded-[4px] shadow-sm">
           <div className="flex items-center justify-between text-[#64748B] mb-1">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Total Debits</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider">
+              Total Debit (In side)
+            </span>
             <ArrowUpRight className="w-4 h-4 text-[#2563EB]" />
           </div>
           <div className="text-base font-bold text-[#2563EB] font-mono">
             {formatCurrency(totalDebit)}
           </div>
-          <span className="text-[10px] text-[#94A3B8]">Sum of all debit lines in range</span>
+          <span className="text-[10px] text-[#94A3B8]">Sum of debit lines in range</span>
         </div>
 
         <div className="bg-white p-3 border border-[#E2E8F0] rounded-[4px] shadow-sm">
           <div className="flex items-center justify-between text-[#64748B] mb-1">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Total Credits</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider">
+              Total Credit (Out side)
+            </span>
             <ArrowDownLeft className="w-4 h-4 text-[#16A34A]" />
           </div>
           <div className="text-base font-bold text-[#16A34A] font-mono">
             {formatCurrency(totalCredit)}
           </div>
-          <span className="text-[10px] text-[#94A3B8]">Sum of all credit lines in range</span>
+          <span className="text-[10px] text-[#94A3B8]">Sum of credit lines in range</span>
         </div>
 
         <div className="bg-white p-3 border border-[#E2E8F0] rounded-[4px] shadow-sm">
           <div className="flex items-center justify-between text-[#64748B] mb-1">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Double-Entry Balance</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider">
+              Double-Entry Balance
+            </span>
             {isBalanced ? (
               <CheckCircle2 className="w-4 h-4 text-[#16A34A]" />
             ) : (
@@ -255,11 +286,11 @@ export function GeneralLedgerPage() {
                   : 'bg-[#FEF2F2] text-[#991B1B] border border-[#FCA5A5]'
               }`}
             >
-              {isBalanced ? 'BALANCED (Σ Dr === Σ Cr)' : 'UNBALANCED DISCREPANCY'}
+              {isBalanced ? 'BALANCED' : 'UNBALANCED'}
             </span>
           </div>
           <span className="text-[10px] text-[#94A3B8] block mt-1">
-            Difference: {formatCurrency(Math.abs(totalDebit - totalCredit))}
+            Agar Balanced hai to entries theek hain. Difference: {formatCurrency(Math.abs(totalDebit - totalCredit))}
           </span>
         </div>
       </div>
@@ -290,7 +321,7 @@ export function GeneralLedgerPage() {
         </div>
 
         <div>
-          <label className="block text-[10px] font-bold text-[#475569] uppercase mb-1">Account Filter</label>
+          <label className="block text-[10px] font-bold text-[#475569] uppercase mb-1">Account / Party</label>
           <select
             value={selectedAccountId}
             onChange={(e) => setSelectedAccountId(e.target.value)}
@@ -299,7 +330,7 @@ export function GeneralLedgerPage() {
             <option value="">-- All Accounts --</option>
             {accounts.map((a) => (
               <option key={a.id} value={a.id}>
-                {a.code} - {a.title}
+                {a.title} [{a.code}]
               </option>
             ))}
           </select>
@@ -325,20 +356,20 @@ export function GeneralLedgerPage() {
         </div>
 
         <div>
-          <label className="block text-[10px] font-bold text-[#475569] uppercase mb-1">Entry Type</label>
+          <label className="block text-[10px] font-bold text-[#475569] uppercase mb-1">Entry Type (Sale, Purchase, Receipt...)</label>
           <select
             value={selectedEntryType}
             onChange={(e) => setSelectedEntryType(e.target.value)}
             className="w-full px-2 py-1 text-xs bg-white border border-[#CBD5E1] rounded-[3px] focus:border-[#2563EB] focus:outline-none"
           >
             <option value="">-- All Entries --</option>
-            <option value="SALE">SALE</option>
-            <option value="SALES_RETURN">SALES RETURN</option>
-            <option value="PURCHASE">PURCHASE</option>
-            <option value="PURCHASE_RETURN">PURCHASE RETURN</option>
-            <option value="RECEIPT">RECEIPT</option>
-            <option value="PAYMENT">PAYMENT</option>
-            <option value="CAPITAL">CAPITAL</option>
+            <option value="SALE">Sale</option>
+            <option value="SALES_RETURN">Sale Return</option>
+            <option value="PURCHASE">Purchase</option>
+            <option value="PURCHASE_RETURN">Purchase Return</option>
+            <option value="HO_INCOMING">Receipt</option>
+            <option value="HO_OUTGOING">Payment</option>
+            <option value="CAPITAL">Capital</option>
           </select>
         </div>
 
@@ -394,7 +425,9 @@ export function GeneralLedgerPage() {
               ) : (
                 <tr>
                   <td colSpan={columns.length} className="px-3 py-8 text-center text-[#94A3B8]">
-                    {loading ? 'Loading ledger entries...' : 'No ledger records match the selected criteria.'}
+                    {loading
+                      ? 'Loading ledger entries...'
+                      : 'Abhi koi transaction nahi. Pehle Sales, Purchase, Wasool ya Payment se entry karein.'}
                   </td>
                 </tr>
               )}

@@ -698,68 +698,13 @@ export function ChartOfAccountsPage() {
                 CLASSIFICATION & CREDIT CONTROL
               </div>
 
-              {/* Area & Sub Area */}
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[11px] font-bold text-[#475569] uppercase tracking-wider mb-1">
-                    Area
-                  </label>
-                  <select
-                    name="area_id"
-                    value={formData.area_id}
-                    onChange={handleInputChange}
-                    className="w-full px-2 py-1 text-xs bg-white border border-[#CBD5E1] rounded-[3px]"
-                  >
-                    <option value="">[ SELECT AREA ]</option>
-                    {lookups.areas.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-[#475569] uppercase tracking-wider mb-1">
-                    Sub Area
-                  </label>
-                  <select
-                    name="sub_area_id"
-                    value={formData.sub_area_id}
-                    onChange={handleInputChange}
-                    className="w-full px-2 py-1 text-xs bg-white border border-[#CBD5E1] rounded-[3px]"
-                  >
-                    <option value="">[ SELECT SUB AREA ]</option>
-                    {lookups.subAreas.map((sa) => (
-                      <option key={sa.id} value={sa.id}>
-                        {sa.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+              {/* Area & Sub Area — simplified per client requirement (defaults to null) */}
+              <input type="hidden" name="area_id" value={formData.area_id || ""} />
+              <input type="hidden" name="sub_area_id" value={formData.sub_area_id || ""} />
 
               {/* Salesman & Booker */}
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[11px] font-bold text-[#475569] uppercase tracking-wider mb-1">
-                    Salesman
-                  </label>
-                  <select
-                    name="salesman_id"
-                    value={formData.salesman_id}
-                    onChange={handleInputChange}
-                    className="w-full px-2 py-1 text-xs bg-white border border-[#CBD5E1] rounded-[3px]"
-                  >
-                    <option value="">[ SELECT SALESMAN ]</option>
-                    {lookups.salesmen.map((sm) => (
-                      <option key={sm.id} value={sm.id}>
-                        {sm.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
+              <div className="grid grid-cols-1 gap-2">
+                <input type="hidden" name="salesman_id" value={formData.salesman_id || ""} />
                 <div>
                   <label className="block text-[11px] font-bold text-[#475569] uppercase tracking-wider mb-1">
                     Booker / Agent

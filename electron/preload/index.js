@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   accounts: {
     list: (filters) => ipcRenderer.invoke('accounts:list', filters),
+    listWithBalances: (accountType) => ipcRenderer.invoke('accounts:listWithBalances', accountType),
     getByCode: (code) => ipcRenderer.invoke('accounts:getByCode', code),
     getNextCode: () => ipcRenderer.invoke('accounts:getNextCode'),
     getQuickNav: (params) => ipcRenderer.invoke('accounts:getQuickNav', params),

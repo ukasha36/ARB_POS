@@ -11,6 +11,15 @@ function registerAccountIpc() {
     }
   });
 
+  ipcMain.handle("accounts:listWithBalances", async (event, accountType) => {
+    try {
+      const data = accountService.getAccountsWithBalances(accountType);
+      return { success: true, data };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
   ipcMain.handle("accounts:getByCode", async (event, code) => {
     try {
       const data = accountService.getAccountByCode(code);

@@ -39,6 +39,10 @@ export const api = {
       if (hasElectron) return await window.electronAPI.accounts.list(filters);
       return { success: true, data: [] };
     },
+    listWithBalances: async (accountType) => {
+      if (hasElectron) return await window.electronAPI.accounts.listWithBalances(accountType);
+      return { success: true, data: [] };
+    },
     getByCode: async (code) => {
       if (hasElectron) return await window.electronAPI.accounts.getByCode(code);
       return { success: true, data: null };
