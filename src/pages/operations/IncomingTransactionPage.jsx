@@ -155,9 +155,8 @@ export function IncomingTransactionPage() {
     }
   };
 
-  const outstandingLabel = closingBalance >= 0
-    ? "Lena baqi"
-    : "Jama hua (Overpaid)";
+  const outstandingLabel =
+    closingBalance >= 0 ? "Lena baqi" : "Jama hua (Overpaid)";
 
   return (
     <div className="space-y-4 select-none">
@@ -168,9 +167,7 @@ export function IncomingTransactionPage() {
             <CreditCard className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-xs font-bold text-[#0F172A]">
-              Receive Money (Wasool)
-            </h3>
+            <h3 className="text-xs font-bold text-[#0F172A]">Receive Money</h3>
             <p className="text-[11px] text-[#64748B]">
               Kab customer se paise aayein — udhaar recovery bhi yahi se.
             </p>
@@ -257,7 +254,8 @@ export function IncomingTransactionPage() {
               )}
               {hasAccountsLoaded && sourceAccounts.length === 0 && (
                 <p className="text-[10px] text-[#DC2626]">
-                  No customers found. Pehle Setups → Accounts mein Customer banaein.
+                  No customers found. Pehle Setups → Accounts mein Customer
+                  banaein.
                 </p>
               )}
               {sourceAccounts.length > 0 && (
@@ -436,14 +434,10 @@ export function IncomingTransactionPage() {
                               {r.reference_no || "—"}
                             </td>
                             <td className="px-2 py-1 text-right font-mono text-[#2563EB]">
-                              {r.debit > 0
-                                ? formatCurrency(r.debit)
-                                : "—"}
+                              {r.debit > 0 ? formatCurrency(r.debit) : "—"}
                             </td>
                             <td className="px-2 py-1 text-right font-mono text-[#16A34A]">
-                              {r.credit > 0
-                                ? formatCurrency(r.credit)
-                                : "—"}
+                              {r.credit > 0 ? formatCurrency(r.credit) : "—"}
                             </td>
                             <td className="px-2 py-1 text-right font-mono font-bold">
                               {formatCurrency(r.running_balance)}

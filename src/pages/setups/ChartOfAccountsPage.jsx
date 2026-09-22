@@ -315,15 +315,6 @@ export function ChartOfAccountsPage() {
         {/* Local Toolbar Actions */}
         <div className="flex items-center gap-1.5">
           <Button
-            variant="primary"
-            size="sm"
-            icon={Plus}
-            onClick={handleNewRecord}
-          >
-            Insert (Ctrl+N)
-          </Button>
-
-          <Button
             variant="danger"
             size="sm"
             icon={Trash2}
@@ -699,12 +690,24 @@ export function ChartOfAccountsPage() {
               </div>
 
               {/* Area & Sub Area — simplified per client requirement (defaults to null) */}
-              <input type="hidden" name="area_id" value={formData.area_id || ""} />
-              <input type="hidden" name="sub_area_id" value={formData.sub_area_id || ""} />
+              <input
+                type="hidden"
+                name="area_id"
+                value={formData.area_id || ""}
+              />
+              <input
+                type="hidden"
+                name="sub_area_id"
+                value={formData.sub_area_id || ""}
+              />
 
               {/* Salesman & Booker */}
               <div className="grid grid-cols-1 gap-2">
-                <input type="hidden" name="salesman_id" value={formData.salesman_id || ""} />
+                <input
+                  type="hidden"
+                  name="salesman_id"
+                  value={formData.salesman_id || ""}
+                />
                 <div>
                   <label className="block text-[11px] font-bold text-[#475569] uppercase tracking-wider mb-1">
                     Booker / Agent

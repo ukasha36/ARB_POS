@@ -102,7 +102,7 @@ export function Sidebar() {
         },
         {
           id: "ops-sales-billing",
-          title: "Sales Counter Billing",
+          title: "Sales Entry",
           category: "DAILY OPERATIONS",
           icon: Calculator,
         },

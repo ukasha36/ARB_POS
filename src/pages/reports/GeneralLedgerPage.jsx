@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from "react";
 import {
   FileSpreadsheet,
   Calendar,
@@ -8,14 +8,14 @@ import {
   ArrowDownLeft,
   CheckCircle2,
   AlertCircle,
-} from 'lucide-react';
+} from "lucide-react";
 import {
   useReactTable,
   getCoreRowModel,
   flexRender,
-} from '@tanstack/react-table';
-import { api } from '../../services/api';
-import { formatCurrency, entryTypeLabel } from '../../utils/formatters';
+} from "@tanstack/react-table";
+import { api } from "../../services/api";
+import { formatCurrency, entryTypeLabel } from "../../utils/formatters";
 
 export function GeneralLedgerPage() {
   const [records, setRecords] = useState([]);
@@ -25,11 +25,11 @@ export function GeneralLedgerPage() {
   const [loading, setLoading] = useState(false);
 
   // Filters
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
-  const [selectedAccountId, setSelectedAccountId] = useState('');
-  const [selectedAccountType, setSelectedAccountType] = useState('');
-  const [selectedEntryType, setSelectedEntryType] = useState('');
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [selectedAccountId, setSelectedAccountId] = useState("");
+  const [selectedAccountType, setSelectedAccountType] = useState("");
+  const [selectedEntryType, setSelectedEntryType] = useState("");
 
   const loadAccounts = async () => {
     try {
@@ -38,7 +38,7 @@ export function GeneralLedgerPage() {
         setAccounts(res.data || []);
       }
     } catch (err) {
-      console.error('Failed to load accounts:', err);
+      console.error("Failed to load accounts:", err);
     }
   };
 
@@ -58,7 +58,7 @@ export function GeneralLedgerPage() {
         setTotalCredit(res.data.totalCredit || 0);
       }
     } catch (err) {
-      console.error('Failed to load general ledger:', err);
+      console.error("Failed to load general ledger:", err);
     } finally {
       setLoading(false);
     }
@@ -75,35 +75,38 @@ export function GeneralLedgerPage() {
   };
 
   const handleResetFilters = () => {
-    setDateFrom('');
-    setDateTo('');
-    setSelectedAccountId('');
-    setSelectedAccountType('');
-    setSelectedEntryType('');
+    setDateFrom("");
+    setDateTo("");
+    setSelectedAccountId("");
+    setSelectedAccountType("");
+    setSelectedEntryType("");
     setTimeout(loadLedger, 0);
   };
 
-  const isBalanced = Math.round(totalDebit * 100) === Math.round(totalCredit * 100);
+  const isBalanced =
+    Math.round(totalDebit * 100) === Math.round(totalCredit * 100);
 
   const columns = useMemo(
     () => [
       {
-        accessorKey: 'date',
-        header: 'Date',
+        accessorKey: "date",
+        header: "Date",
         cell: (info) => (
           <span className="font-mono text-[#475569]">{info.getValue()}</span>
         ),
       },
       {
-        accessorKey: 'reference_no',
-        header: 'Bill / Ref #',
+        accessorKey: "reference_no",
+        header: "Bill / Ref #",
         cell: (info) => (
-          <span className="font-mono font-bold text-[#0F172A]">{info.getValue() || '—'}</span>
+          <span className="font-mono font-bold text-[#0F172A]">
+            {info.getValue() || "—"}
+          </span>
         ),
       },
       {
-        accessorKey: 'entry_type',
-        header: 'Type',
+        accessorKey: "entry_type",
+        header: "Type",
         cell: (info) => (
           <span className="px-1.5 py-0.5 rounded bg-[#EFF6FF] text-[#2563EB] border border-[#BFDBFE] text-[10px] font-bold">
             {entryTypeLabel(info.getValue())}
@@ -111,35 +114,37 @@ export function GeneralLedgerPage() {
         ),
       },
       {
-        accessorKey: 'account_title',
-        header: 'Account / Party',
+        accessorKey: "account_title",
+        header: "Account / Party",
         cell: (info) => {
           const row = info.row.original;
           return (
             <div>
-              <span className="font-mono font-semibold text-[#2563EB] mr-1.5">
+              {/* <span className="font-mono font-semibold text-[#2563EB] mr-1.5">
                 [{row.account_code}]
+              </span> */}
+              <span className="font-bold text-[#1E293B]">
+                {info.getValue()}
               </span>
-              <span className="font-bold text-[#1E293B]">{info.getValue()}</span>
-              <span className="text-[10px] text-[#64748B] block">
+              {/* <span className="text-[10px] text-[#64748B] block">
                 Type: {row.account_type}
-              </span>
+              </span> */}
             </div>
           );
         },
       },
       {
-        accessorKey: 'description',
-        header: 'Details',
+        accessorKey: "description",
+        header: "Details",
         cell: (info) => (
           <span className="text-[#475569] text-[11px] block max-w-xs truncate">
-            {info.getValue() || '—'}
+            {info.getValue() || "—"}
           </span>
         ),
       },
       {
-        accessorKey: 'debit',
-        header: 'Debit (Rs.)',
+        accessorKey: "debit",
+        header: "Debit (Rs.)",
         cell: (info) => {
           const val = Number(info.getValue()) || 0;
           return val > 0 ? (
@@ -152,8 +157,8 @@ export function GeneralLedgerPage() {
         },
       },
       {
-        accessorKey: 'credit',
-        header: 'Credit (Rs.)',
+        accessorKey: "credit",
+        header: "Credit (Rs.)",
         cell: (info) => {
           const val = Number(info.getValue()) || 0;
           return val > 0 ? (
@@ -166,19 +171,21 @@ export function GeneralLedgerPage() {
         },
       },
       {
-        accessorKey: 'running_balance',
-        header: 'Balance (Rs.)',
+        accessorKey: "running_balance",
+        header: "Balance (Rs.)",
         cell: (info) => {
           const val = Number(info.getValue()) || 0;
           return (
-            <span className={`font-mono text-right block font-bold ${val < 0 ? 'text-[#DC2626]' : 'text-[#0F172A]'}`}>
+            <span
+              className={`font-mono text-right block font-bold ${val < 0 ? "text-[#DC2626]" : "text-[#0F172A]"}`}
+            >
               {formatCurrency(val)}
             </span>
           );
         },
       },
     ],
-    []
+    [],
   );
 
   const table = useReactTable({
@@ -200,8 +207,8 @@ export function GeneralLedgerPage() {
               All Transactions (General Ledger)
             </h2>
             <p className="text-[11px] text-[#64748B]">
-              Har sale, purchase, wasool, payment ka poora hisaab — date ke sath.
-              Yeh list sirf dekhne ke liye hai; yahan se edit nahi hota.
+              Har sale, purchase, wasool, payment ka poora hisaab — date ke
+              sath. Yeh list sirf dekhne ke liye hai; yahan se edit nahi hota.
             </p>
           </div>
         </div>
@@ -213,7 +220,10 @@ export function GeneralLedgerPage() {
           Yeh page kya hai?
         </p>
         <ul className="text-[11px] text-[#475569] space-y-0.5 list-disc list-inside">
-          <li>App mein jo bhi entry hui (sale, purchase, wasool, payment) woh yahan dikhti hai</li>
+          <li>
+            App mein jo bhi entry hui (sale, purchase, wasool, payment) woh
+            yahan dikhti hai
+          </li>
           <li>Har line ek hisaab ki entry hai</li>
           <li>Total Debits = Total Credits hona chahiye (BALANCED = theek)</li>
         </ul>
@@ -223,7 +233,10 @@ export function GeneralLedgerPage() {
             <li>Sale / Purchase / Receipt / Payment = transaction type</li>
             <li>Debit column = "In" side ki amount</li>
             <li>Credit column = "Out" side ki amount</li>
-            <li>Running Balance = us account ka chalta balance (advanced users ke liye)</li>
+            <li>
+              Running Balance = us account ka chalta balance (advanced users ke
+              liye)
+            </li>
           </ul>
         </div>
       </div>
@@ -234,7 +247,9 @@ export function GeneralLedgerPage() {
           disabled={loading}
           className="flex items-center gap-1.5 px-3 py-1.5 bg-[#EFF6FF] text-[#2563EB] border border-[#BFDBFE] hover:bg-[#DBEAFE] rounded-[3px] text-xs font-semibold"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+          <RefreshCw
+            className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`}
+          />
           <span>Refresh</span>
         </button>
       </div>
@@ -251,7 +266,9 @@ export function GeneralLedgerPage() {
           <div className="text-base font-bold text-[#2563EB] font-mono">
             {formatCurrency(totalDebit)}
           </div>
-          <span className="text-[10px] text-[#94A3B8]">Sum of debit lines in range</span>
+          <span className="text-[10px] text-[#94A3B8]">
+            Sum of debit lines in range
+          </span>
         </div>
 
         <div className="bg-white p-3 border border-[#E2E8F0] rounded-[4px] shadow-sm">
@@ -264,7 +281,9 @@ export function GeneralLedgerPage() {
           <div className="text-base font-bold text-[#16A34A] font-mono">
             {formatCurrency(totalCredit)}
           </div>
-          <span className="text-[10px] text-[#94A3B8]">Sum of credit lines in range</span>
+          <span className="text-[10px] text-[#94A3B8]">
+            Sum of credit lines in range
+          </span>
         </div>
 
         <div className="bg-white p-3 border border-[#E2E8F0] rounded-[4px] shadow-sm">
@@ -282,15 +301,16 @@ export function GeneralLedgerPage() {
             <span
               className={`px-2 py-0.5 rounded text-xs font-bold ${
                 isBalanced
-                  ? 'bg-[#DCFCE7] text-[#166534] border border-[#86EFAC]'
-                  : 'bg-[#FEF2F2] text-[#991B1B] border border-[#FCA5A5]'
+                  ? "bg-[#DCFCE7] text-[#166534] border border-[#86EFAC]"
+                  : "bg-[#FEF2F2] text-[#991B1B] border border-[#FCA5A5]"
               }`}
             >
-              {isBalanced ? 'BALANCED' : 'UNBALANCED'}
+              {isBalanced ? "BALANCED" : "UNBALANCED"}
             </span>
           </div>
           <span className="text-[10px] text-[#94A3B8] block mt-1">
-            Agar Balanced hai to entries theek hain. Difference: {formatCurrency(Math.abs(totalDebit - totalCredit))}
+            Agar Balanced hai to entries theek hain. Difference:{" "}
+            {formatCurrency(Math.abs(totalDebit - totalCredit))}
           </span>
         </div>
       </div>
@@ -301,7 +321,9 @@ export function GeneralLedgerPage() {
         className="bg-white p-3 border border-[#E2E8F0] rounded-[4px] grid grid-cols-6 gap-2.5 items-end"
       >
         <div>
-          <label className="block text-[10px] font-bold text-[#475569] uppercase mb-1">From Date</label>
+          <label className="block text-[10px] font-bold text-[#475569] uppercase mb-1">
+            From Date
+          </label>
           <input
             type="date"
             value={dateFrom}
@@ -311,7 +333,9 @@ export function GeneralLedgerPage() {
         </div>
 
         <div>
-          <label className="block text-[10px] font-bold text-[#475569] uppercase mb-1">To Date</label>
+          <label className="block text-[10px] font-bold text-[#475569] uppercase mb-1">
+            To Date
+          </label>
           <input
             type="date"
             value={dateTo}
@@ -321,7 +345,9 @@ export function GeneralLedgerPage() {
         </div>
 
         <div>
-          <label className="block text-[10px] font-bold text-[#475569] uppercase mb-1">Account / Party</label>
+          <label className="block text-[10px] font-bold text-[#475569] uppercase mb-1">
+            Account / Party
+          </label>
           <select
             value={selectedAccountId}
             onChange={(e) => setSelectedAccountId(e.target.value)}
@@ -337,7 +363,9 @@ export function GeneralLedgerPage() {
         </div>
 
         <div>
-          <label className="block text-[10px] font-bold text-[#475569] uppercase mb-1">Account Type</label>
+          <label className="block text-[10px] font-bold text-[#475569] uppercase mb-1">
+            Account Type
+          </label>
           <select
             value={selectedAccountType}
             onChange={(e) => setSelectedAccountType(e.target.value)}
@@ -356,7 +384,9 @@ export function GeneralLedgerPage() {
         </div>
 
         <div>
-          <label className="block text-[10px] font-bold text-[#475569] uppercase mb-1">Entry Type (Sale, Purchase, Receipt...)</label>
+          <label className="block text-[10px] font-bold text-[#475569] uppercase mb-1">
+            Entry Type (Sale, Purchase, Receipt...)
+          </label>
           <select
             value={selectedEntryType}
             onChange={(e) => setSelectedEntryType(e.target.value)}
@@ -402,7 +432,10 @@ export function GeneralLedgerPage() {
                       key={header.id}
                       className="px-3 py-2 font-bold text-[#475569] text-[11px] uppercase tracking-wider border-r border-[#E2E8F0] last:border-r-0"
                     >
-                      {flexRender(header.column.columnDef.header, header.getContext())}
+                      {flexRender(
+                        header.column.columnDef.header,
+                        header.getContext(),
+                      )}
                     </th>
                   ))}
                 </tr>
@@ -417,17 +450,23 @@ export function GeneralLedgerPage() {
                         key={cell.id}
                         className="px-3 py-2 border-r border-[#E2E8F0] last:border-r-0 text-[#0F172A]"
                       >
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext(),
+                        )}
                       </td>
                     ))}
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={columns.length} className="px-3 py-8 text-center text-[#94A3B8]">
+                  <td
+                    colSpan={columns.length}
+                    className="px-3 py-8 text-center text-[#94A3B8]"
+                  >
                     {loading
-                      ? 'Loading ledger entries...'
-                      : 'Abhi koi transaction nahi. Pehle Sales, Purchase, Wasool ya Payment se entry karein.'}
+                      ? "Loading ledger entries..."
+                      : "Abhi koi transaction nahi. Pehle Sales, Purchase, Wasool ya Payment se entry karein."}
                   </td>
                 </tr>
               )}

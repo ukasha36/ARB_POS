@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from "react";
 import {
   FileText,
   Search,
@@ -8,20 +8,20 @@ import {
   ArrowDownLeft,
   DollarSign,
   AlertTriangle,
-} from 'lucide-react';
+} from "lucide-react";
 import {
   useReactTable,
   getCoreRowModel,
   flexRender,
-} from '@tanstack/react-table';
-import { api } from '../../services/api';
-import { formatCurrency, entryTypeLabel } from '../../utils/formatters';
+} from "@tanstack/react-table";
+import { api } from "../../services/api";
+import { formatCurrency, entryTypeLabel } from "../../utils/formatters";
 
 export function AccountStatementPage() {
   const [accounts, setAccounts] = useState([]);
-  const [selectedAccountId, setSelectedAccountId] = useState('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [selectedAccountId, setSelectedAccountId] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const [statementData, setStatementData] = useState({
     account: {},
@@ -38,9 +38,9 @@ export function AccountStatementPage() {
       const res = await api.accounts.list();
       if (res.success) {
         const sorted = (res.data || []).sort((a, b) => {
-          const ta = (a.title || '').toLowerCase();
-          const tb = (b.title || '').toLowerCase();
-          const priority = ['cash', 'bank', 'customer', 'supplier'];
+          const ta = (a.title || "").toLowerCase();
+          const tb = (b.title || "").toLowerCase();
+          const priority = ["cash", "bank", "customer", "supplier"];
           const ia = priority.indexOf(ta);
           const ib = priority.indexOf(tb);
           if (ia !== ib) return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
@@ -50,7 +50,7 @@ export function AccountStatementPage() {
         if (sorted.length) setSelectedAccountId(String(sorted[0].id));
       }
     } catch (err) {
-      console.error('Failed to load accounts:', err);
+      console.error("Failed to load accounts:", err);
     }
   };
 
@@ -61,13 +61,13 @@ export function AccountStatementPage() {
       const res = await api.reports.accountStatement(
         selectedAccountId,
         dateFrom || null,
-        dateTo || null
+        dateTo || null,
       );
       if (res.success && res.data) {
         setStatementData(res.data);
       }
     } catch (err) {
-      console.error('Failed to load account statement:', err);
+      console.error("Failed to load account statement:", err);
     } finally {
       setLoading(false);
     }
@@ -77,40 +77,42 @@ export function AccountStatementPage() {
     loadAccounts();
   }, []);
 
-  useEffect(() => {
-    if (selectedAccountId) {
-      loadStatement();
-    }
-  }, [selectedAccountId]);
+  // useEffect(() => {
+  //   if (selectedAccountId) {
+  //     loadStatement();
+  //   }
+  // }, [selectedAccountId]);
 
   const handleFilterSubmit = (e) => {
     e.preventDefault();
     loadStatement();
   };
 
-  const accountType = statementData.account?.account_type || '';
-  const isCashOrBank = accountType === 'CASH' || accountType === 'BANK';
+  const accountType = statementData.account?.account_type || "";
+  const isCashOrBank = accountType === "CASH" || accountType === "BANK";
   const isNegativeCash = isCashOrBank && statementData.closingBalance < 0;
 
   const columns = useMemo(
     () => [
       {
-        accessorKey: 'date',
-        header: 'Date',
+        accessorKey: "date",
+        header: "Date",
         cell: (info) => (
           <span className="font-mono text-[#475569]">{info.getValue()}</span>
         ),
       },
       {
-        accessorKey: 'reference_no',
-        header: 'Bill / Ref #',
+        accessorKey: "reference_no",
+        header: "Bill / Ref #",
         cell: (info) => (
-          <span className="font-mono font-bold text-[#0F172A]">{info.getValue() || '—'}</span>
+          <span className="font-mono font-bold text-[#0F172A]">
+            {info.getValue() || "—"}
+          </span>
         ),
       },
       {
-        accessorKey: 'entry_type',
-        header: 'Type',
+        accessorKey: "entry_type",
+        header: "Type",
         cell: (info) => (
           <span className="px-1.5 py-0.5 rounded bg-[#EFF6FF] text-[#2563EB] border border-[#BFDBFE] text-[10px] font-bold">
             {entryTypeLabel(info.getValue())}
@@ -118,17 +120,17 @@ export function AccountStatementPage() {
         ),
       },
       {
-        accessorKey: 'description',
-        header: 'Details',
+        accessorKey: "description",
+        header: "Details",
         cell: (info) => (
           <span className="text-[#475569] text-[11px] block max-w-sm truncate">
-            {info.getValue() || '—'}
+            {info.getValue() || "—"}
           </span>
         ),
       },
       {
-        accessorKey: 'debit',
-        header: 'Debit (Rs.)',
+        accessorKey: "debit",
+        header: "Debit (Rs.)",
         cell: (info) => {
           const val = Number(info.getValue()) || 0;
           return val > 0 ? (
@@ -141,8 +143,8 @@ export function AccountStatementPage() {
         },
       },
       {
-        accessorKey: 'credit',
-        header: 'Credit (Rs.)',
+        accessorKey: "credit",
+        header: "Credit (Rs.)",
         cell: (info) => {
           const val = Number(info.getValue()) || 0;
           return val > 0 ? (
@@ -155,13 +157,13 @@ export function AccountStatementPage() {
         },
       },
       {
-        accessorKey: 'running_balance',
-        header: 'Balance (Rs.)',
+        accessorKey: "running_balance",
+        header: "Balance (Rs.)",
         cell: (info) => {
           const val = Number(info.getValue()) || 0;
           return (
             <span
-              className={`font-mono text-right block font-bold ${val < 0 ? 'text-[#DC2626]' : 'text-[#0F172A]'}`}
+              className={`font-mono text-right block font-bold ${val < 0 ? "text-[#DC2626]" : "text-[#0F172A]"}`}
             >
               {formatCurrency(val)}
             </span>
@@ -169,7 +171,7 @@ export function AccountStatementPage() {
         },
       },
     ],
-    []
+    [],
   );
 
   const table = useReactTable({
@@ -191,8 +193,9 @@ export function AccountStatementPage() {
               Account Statement (Khata)
             </h2>
             <p className="text-[11px] text-[#64748B]">
-              Ek account ka poora record: shuru ka balance, beech ki entries, akhir ka balance.
-              Maslan Cash, Bank, Customer, ya Supplier choose karein.
+              Ek account ka poora record: shuru ka balance, beech ki entries,
+              akhir ka balance. Maslan Cash, Bank, Customer, ya Supplier choose
+              karein.
             </p>
           </div>
         </div>
@@ -200,20 +203,13 @@ export function AccountStatementPage() {
 
       {/* Instructions Box */}
       <div className="bg-[#EFF6FF] border border-[#BFDBFE] rounded-[4px] p-3">
-        <p className="text-[11px] font-bold text-[#2563EB] mb-1">
-          Kaise use karein:
-        </p>
-        <ol className="text-[11px] text-[#475569] space-y-0.5 list-decimal list-inside">
-          <li>Upar se Account select karein (e.g. Cash in Hand, ya koi Customer)</li>
-          <li>From / To date (optional) — khali chhoren to sara record</li>
-          <li>Show Statement dabayein</li>
-        </ol>
         <div className="mt-2 text-[10px] text-[#475569]">
-          <p className="font-semibold mb-0.5">Samajh:</p>
           <ul className="list-disc list-inside space-y-0.5">
             <li>Opening Balance = period se pehle kitna tha</li>
             <li>Debit / Credit columns = is period ki entries</li>
-            <li>Closing Balance = ab kitna bacha (Opening + period movements)</li>
+            <li>
+              Closing Balance = ab kitna bacha (Opening + period movements)
+            </li>
           </ul>
         </div>
         <div className="mt-2 text-[10px] text-[#475569]">
@@ -222,7 +218,10 @@ export function AccountStatementPage() {
             <li>Paise aaye → Debit side</li>
             <li>Paise gaye → Credit side</li>
             <li>Closing positive = cash maujood</li>
-            <li>Closing negative = entries zyada outflow show kar rahi hain — data check karein (galat payment/purchase possible)</li>
+            <li>
+              Closing negative = entries zyada outflow show kar rahi hain — data
+              check karein (galat payment/purchase possible)
+            </li>
           </ul>
         </div>
       </div>
@@ -233,7 +232,7 @@ export function AccountStatementPage() {
         className="bg-white p-3 border border-[#E2E8F0] rounded-[4px] flex items-end gap-3"
       >
         <div className="flex-1">
-            <label className="block text-[10px] font-bold text-[#475569] uppercase mb-1">
+          <label className="block text-[10px] font-bold text-[#475569] uppercase mb-1">
             Select Account (Cash / Bank / Customer / Supplier)
           </label>
           <select
@@ -257,7 +256,9 @@ export function AccountStatementPage() {
         </div>
 
         <div className="w-40">
-          <label className="block text-[10px] font-bold text-[#475569] uppercase mb-1">From Date</label>
+          <label className="block text-[10px] font-bold text-[#475569] uppercase mb-1">
+            From Date
+          </label>
           <input
             type="date"
             value={dateFrom}
@@ -267,7 +268,9 @@ export function AccountStatementPage() {
         </div>
 
         <div className="w-40">
-          <label className="block text-[10px] font-bold text-[#475569] uppercase mb-1">To Date</label>
+          <label className="block text-[10px] font-bold text-[#475569] uppercase mb-1">
+            To Date
+          </label>
           <input
             type="date"
             value={dateTo}
@@ -305,7 +308,9 @@ export function AccountStatementPage() {
           <div className="text-base font-bold font-mono text-[#2563EB]">
             {formatCurrency(statementData.totalDebit)}
           </div>
-          <span className="text-[10px] text-[#94A3B8]">Total debit entries</span>
+          <span className="text-[10px] text-[#94A3B8]">
+            Total debit entries
+          </span>
         </div>
 
         <div className="bg-white p-3 border border-[#E2E8F0] rounded-[4px]">
@@ -315,7 +320,9 @@ export function AccountStatementPage() {
           <div className="text-base font-bold font-mono text-[#16A34A]">
             {formatCurrency(statementData.totalCredit)}
           </div>
-          <span className="text-[10px] text-[#94A3B8]">Total credit entries</span>
+          <span className="text-[10px] text-[#94A3B8]">
+            Total credit entries
+          </span>
         </div>
 
         <div className="bg-white p-3 border border-[#E2E8F0] rounded-[4px] bg-[#EFF6FF]/40">
@@ -332,16 +339,18 @@ export function AccountStatementPage() {
             <div className="mt-1 flex items-start gap-1 text-[10px] text-[#DC2626]">
               <AlertTriangle className="w-3 h-3 flex-shrink-0 mt-0.5" />
               <span>
-                Warning: Negative cash unusual hai. Check karein koi payment/purchase
-                zyada to nahi ho gayi.
+                Warning: Negative cash unusual hai. Check karein koi
+                payment/purchase zyada to nahi ho gayi.
               </span>
             </div>
           )}
-          {isCashOrBank && !isNegativeCash && statementData.closingBalance >= 0 && (
-            <div className="mt-1 text-[10px] text-[#16A34A]">
-              Matlab: Cash/Bank mein itna balance show ho raha hai.
-            </div>
-          )}
+          {isCashOrBank &&
+            !isNegativeCash &&
+            statementData.closingBalance >= 0 && (
+              <div className="mt-1 text-[10px] text-[#16A34A]">
+                Matlab: Cash/Bank mein itna balance show ho raha hai.
+              </div>
+            )}
         </div>
       </div>
 
@@ -357,7 +366,10 @@ export function AccountStatementPage() {
                       key={header.id}
                       className="px-3 py-2 font-bold text-[#475569] text-[11px] uppercase tracking-wider border-r border-[#E2E8F0] last:border-r-0"
                     >
-                      {flexRender(header.column.columnDef.header, header.getContext())}
+                      {flexRender(
+                        header.column.columnDef.header,
+                        header.getContext(),
+                      )}
                     </th>
                   ))}
                 </tr>
@@ -372,19 +384,25 @@ export function AccountStatementPage() {
                         key={cell.id}
                         className="px-3 py-2 border-r border-[#E2E8F0] last:border-r-0 text-[#0F172A]"
                       >
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext(),
+                        )}
                       </td>
                     ))}
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={columns.length} className="px-3 py-8 text-center text-[#94A3B8]">
+                  <td
+                    colSpan={columns.length}
+                    className="px-3 py-8 text-center text-[#94A3B8]"
+                  >
                     {loading
-                      ? 'Statement load ho raha hai...'
+                      ? "Statement load ho raha hai..."
                       : !selectedAccountId
-                        ? 'Pehle account select karein (Cash, Bank, Customer, ya Supplier)'
-                        : 'Is account ki abhi koi entry nahi'}
+                        ? "Pehle account select karein (Cash, Bank, Customer, ya Supplier)"
+                        : "Is account ki abhi koi entry nahi"}
                   </td>
                 </tr>
               )}
