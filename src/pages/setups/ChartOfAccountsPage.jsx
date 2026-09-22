@@ -2,12 +2,13 @@ import React, { useState, useEffect } from "react";
 import {
   FileText,
   Save,
-  Plus,
   Trash2,
   BookOpen,
   Check,
   AlertCircle,
   Building2,
+  Edit,
+  Shield,
 } from "lucide-react";
 import { AccountQuickNav } from "../../components/accounts/AccountQuickNav";
 import { AccountListModal } from "../../components/accounts/AccountListModal";
@@ -65,6 +66,23 @@ export function ChartOfAccountsPage() {
   const [statusMessage, setStatusMessage] = useState(null);
   const [saving, setSaving] = useState(false);
 
+  // Delete modal state
+  const [deleteModal, setDeleteModal] = useState({
+    isOpen: false,
+    type: null,
+    dependencies: null,
+  });
+
+  // Sensitive field warning modal
+  const [sensitiveWarningModal, setSensitiveWarningModal] = useState({
+    isOpen: false,
+    changedFields: [],
+    onConfirm: null,
+  });
+
+  // Track original values for sensitive field detection
+  const [originalSensitiveValues, setOriginalSensitiveValues] = useState({});
+
   useEffect(() => {
     loadLookups();
     handleNewRecord();
@@ -90,12 +108,14 @@ export function ChartOfAccountsPage() {
         code: newCode,
       });
       setCurrentBalance(0.0);
+      setOriginalSensitiveValues({});
       setStatusMessage({
         type: "info",
         text: `Prepared new account record. Generated Code: ${newCode}`,
       });
     } catch (err) {
       setFormData({ ...initialFormState, code: "1003" });
+      setOriginalSensitiveValues({});
     }
   };
 
@@ -141,109 +161,6 @@ export function ChartOfAccountsPage() {
     }));
   };
 
-  const handleSave = async (e) => {
-    if (e) e.preventDefault();
-
-    if (!formData.code || !formData.title || !formData.account_type) {
-      setStatusMessage({
-        type: "error",
-        text: "Validation Error: Code, Title, and Account Type are required.",
-      });
-      return;
-    }
-
-    setSaving(true);
-    setStatusMessage(null);
-
-    try {
-      const res = await api.accounts.save(formData);
-      if (res.success && res.data) {
-        setFormData(res.data);
-        setStatusMessage({
-          type: "success",
-          text: `Account '${res.data.title}' [${res.data.code}] saved successfully!`,
-        });
-        if (res.data.id) {
-          const balRes = await api.accounts.getBalance(res.data.id);
-          if (balRes.success) setCurrentBalance(balRes.balance);
-        }
-      } else {
-        setStatusMessage({
-          type: "error",
-          text: res.error || "Failed to save account",
-        });
-      }
-    } catch (err) {
-      setStatusMessage({ type: "error", text: err.message });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!formData.id) {
-      setStatusMessage({
-        type: "error",
-        text: "No existing record selected to delete.",
-      });
-      return;
-    }
-
-    if (
-      !window.confirm(
-        `Are you sure you want to delete or deactivate account '${formData.title}'?`,
-      )
-    ) {
-      return;
-    }
-
-    try {
-      const res = await api.accounts.delete(formData.id);
-      if (res.success) {
-        setStatusMessage({ type: "success", text: res.message });
-        handleNewRecord();
-      } else {
-        setStatusMessage({
-          type: "error",
-          text: res.error || "Failed to delete account",
-        });
-      }
-    } catch (err) {
-      setStatusMessage({ type: "error", text: err.message });
-    }
-  };
-
-  const handleQuickNav = async (direction) => {
-    try {
-      const res = await api.accounts.getQuickNav({
-        currentCode: formData.code,
-        direction,
-      });
-      if (res.success && res.data) {
-        loadSelectedAccount(res.data);
-      }
-    } catch (err) {
-      console.error("QuickNav failed", err);
-    }
-  };
-
-  const handleSearchGo = async (term) => {
-    if (!term || !term.trim()) return;
-    try {
-      const res = await api.accounts.list({ search: term });
-      if (res.success && res.data && res.data.length > 0) {
-        loadSelectedAccount(res.data[0]);
-      } else {
-        setStatusMessage({
-          type: "error",
-          text: `No account found matching '${term}'`,
-        });
-      }
-    } catch (err) {
-      console.error("Search GO failed", err);
-    }
-  };
-
   const loadSelectedAccount = async (account) => {
     setFormData({
       id: account.id,
@@ -278,6 +195,14 @@ export function ChartOfAccountsPage() {
       short_name: account.short_name || "",
     });
 
+    setOriginalSensitiveValues({
+      account_type: account.account_type || "CUSTOMER",
+      opening_balance: account.opening_balance || 0.0,
+      opening_balance_type: account.opening_balance_type || "Dr",
+      opening_date:
+        account.opening_date || new Date().toISOString().split("T")[0],
+    });
+
     if (account.id) {
       const balRes = await api.accounts.getBalance(account.id);
       if (balRes.success) setCurrentBalance(balRes.balance);
@@ -286,6 +211,179 @@ export function ChartOfAccountsPage() {
       type: "info",
       text: `Loaded account '${account.title}' [${account.code}]`,
     });
+  };
+
+  const handleDelete = async () => {
+    if (!formData.id) {
+      setStatusMessage({
+        type: "error",
+        text: "No existing record selected to delete.",
+      });
+      return;
+    }
+
+    try {
+      const res = await api.accounts.checkDependencies(formData.id);
+      if (res.success && res.data) {
+        const dep = res.data;
+        setDeleteModal({
+          isOpen: true,
+          type: dep.canHardDelete ? "unused" : "used",
+          dependencies: dep,
+        });
+      } else {
+        setStatusMessage({
+          type: "error",
+          text: res.error || "Failed to check account dependencies",
+        });
+      }
+    } catch (err) {
+      setStatusMessage({ type: "error", text: err.message });
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    const { type, dependencies } = deleteModal;
+    if (!formData.id) return;
+
+    try {
+      const res = await api.accounts.delete(formData.id);
+      if (res.success) {
+        setStatusMessage({ type: "success", text: res.message });
+        if (res.action === "deleted") {
+          handleNewRecord();
+        } else if (res.action === "deactivated") {
+          if (dependencies?.account) {
+            await loadSelectedAccount(dependencies.account);
+          }
+        }
+      } else {
+        setStatusMessage({
+          type: "error",
+          text: res.error || "Failed to delete account",
+        });
+      }
+    } catch (err) {
+      setStatusMessage({ type: "error", text: err.message });
+    } finally {
+      setDeleteModal({ isOpen: false, type: null, dependencies: null });
+    }
+  };
+
+  const handleSave = async (e) => {
+    if (e) e.preventDefault();
+
+    if (!formData.code || !formData.title || !formData.account_type) {
+      setStatusMessage({
+        type: "error",
+        text: "Validation Error: Code, Title, and Account Type are required.",
+      });
+      return;
+    }
+
+    if (formData.id) {
+      const sensitiveFields = [
+        "account_type",
+        "opening_balance",
+        "opening_balance_type",
+        "opening_date",
+      ];
+      const changedFields = sensitiveFields.filter(
+        (field) => formData[field] !== originalSensitiveValues[field],
+      );
+
+      if (changedFields.length > 0) {
+        try {
+          const depRes = await api.accounts.checkDependencies(formData.id);
+          if (
+            depRes.success &&
+            depRes.data &&
+            !depRes.data.canHardDelete
+          ) {
+            setSensitiveWarningModal({
+              isOpen: true,
+              changedFields,
+              onConfirm: () => executeSave(),
+            });
+            return;
+          }
+        } catch (err) {
+          console.warn(
+            "Could not check dependencies for sensitive save warning:",
+            err,
+          );
+        }
+      }
+    }
+
+    await executeSave();
+  };
+
+  const executeSave = async () => {
+    setSaving(true);
+    setStatusMessage(null);
+
+    try {
+      const res = await api.accounts.save(formData);
+      if (res.success && res.data) {
+        setFormData(res.data);
+        setStatusMessage({
+          type: "success",
+          text: `Account '${res.data.title}' [${res.data.code}] saved successfully!`,
+        });
+        if (res.data.id) {
+          const balRes = await api.accounts.getBalance(res.data.id);
+          if (balRes.success) setCurrentBalance(balRes.balance);
+
+          setOriginalSensitiveValues({
+            account_type: res.data.account_type,
+            opening_balance: res.data.opening_balance,
+            opening_balance_type: res.data.opening_balance_type,
+            opening_date: res.data.opening_date,
+          });
+        }
+      } else {
+        setStatusMessage({
+          type: "error",
+          text: res.error || "Failed to save account",
+        });
+      }
+    } catch (err) {
+      setStatusMessage({ type: "error", text: err.message });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleQuickNav = async (direction) => {
+    try {
+      const res = await api.accounts.getQuickNav({
+        currentCode: formData.code,
+        direction,
+      });
+      if (res.success && res.data) {
+        loadSelectedAccount(res.data);
+      }
+    } catch (err) {
+      console.error("QuickNav failed", err);
+    }
+  };
+
+  const handleSearchGo = async (term) => {
+    if (!term || !term.trim()) return;
+    try {
+      const res = await api.accounts.list({ search: term });
+      if (res.success && res.data && res.data.length > 0) {
+        loadSelectedAccount(res.data[0]);
+      } else {
+        setStatusMessage({
+          type: "error",
+          text: `No account found matching '${term}'`,
+        });
+      }
+    } catch (err) {
+      console.error("Search GO failed", err);
+    }
   };
 
   const handleOpenLedger = () => {
@@ -306,6 +404,12 @@ export function ChartOfAccountsPage() {
           </span>
           <h2 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
             CHART OF ACCOUNT SETUP
+            {formData.id && (
+              <span className="px-1.5 py-0.5 bg-[#FEF3C7] text-[#92400E] text-[10px] font-mono rounded border border-[#FDE68A] flex items-center gap-1">
+                <Edit className="w-3 h-3" />
+                EDITING: {formData.code}
+              </span>
+            )}
           </h2>
           <p className="text-[11px] text-[#64748B]">
             Company / Supplier / Customer / Expense / Bank Setup
@@ -501,7 +605,7 @@ export function ChartOfAccountsPage() {
                   name="opening_balance"
                   value={formData.opening_balance}
                   onChange={handleInputChange}
-                  className="w-full px-2 py-1 text-xs font-mono font-semibold bg-white text-[#0F172A] border border-[#CBD5E1] rounded-[3px] focus:outline-none focus:border-[#2563EB]"
+                  className="w-full px-2 py-1 text-xs font-mono font-bold bg-white text-[#0F172A] border border-[#CBD5E1] rounded-[3px] focus:outline-none focus:border-[#2563EB]"
                 />
               </div>
 
@@ -689,7 +793,7 @@ export function ChartOfAccountsPage() {
                 CLASSIFICATION & CREDIT CONTROL
               </div>
 
-              {/* Area & Sub Area — simplified per client requirement (defaults to null) */}
+              {/* Area & Sub Area - simplified per client requirement (defaults to null) */}
               <input
                 type="hidden"
                 name="area_id"
@@ -751,18 +855,6 @@ export function ChartOfAccountsPage() {
                     placeholder="Category"
                     className="w-full px-2 py-1 text-xs bg-white border border-[#CBD5E1] rounded-[3px]"
                   />
-                  {/* <select
-                    name="category_id"
-                    onChange={handleInputChange}
-                    className="w-full px-2 py-1 text-xs bg-white border border-[#CBD5E1] rounded-[3px]"
-                  >
-                    <option value="">[ SELECT CATEGORY ]</option>
-                    {lookups.categories.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select> */}
                 </div>
               </div>
 
@@ -857,6 +949,10 @@ export function ChartOfAccountsPage() {
         isOpen={isListModalOpen}
         onClose={() => setIsListModalOpen(false)}
         onSelectAccount={loadSelectedAccount}
+        onRequestDelete={async (account) => {
+          await loadSelectedAccount(account);
+          handleDelete();
+        }}
       />
 
       {/* Ledger Navigation Notification Modal */}
@@ -880,7 +976,7 @@ export function ChartOfAccountsPage() {
                     {ledgerNotification.code}
                   </code>
                 </p>
-                <p className="text-[11px] text-[#0F172A] font-medium mt-1">
+                <p className="text-[11px] text-[#47556A] font-medium mt-1">
                   Current Net Balance:{" "}
                   <strong className="font-mono">
                     {formatCurrency(ledgerNotification.balance)}
@@ -899,6 +995,228 @@ export function ChartOfAccountsPage() {
                 onClick={() => setLedgerNotification(null)}
               >
                 OK
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Delete Account Modal - Unused */}
+      {deleteModal.isOpen && deleteModal.type === "unused" && (
+        <Modal
+          isOpen={deleteModal.isOpen}
+          onClose={() =>
+            setDeleteModal({ isOpen: false, type: null, dependencies: null })
+          }
+          title="Delete Account"
+          width="max-w-md"
+        >
+          <div className="space-y-3">
+            <div className="bg-[#DCFCE7] p-3 rounded border border-[#86EFAC] flex items-center gap-3">
+              <Check className="w-6 h-6 text-[#16A34A]" />
+              <div>
+                <h4 className="font-bold text-xs text-[#0F172A]">
+                  Account Can Be Safely Deleted
+                </h4>
+                <p className="text-[11px] text-[#166534]">
+                  No linked transactions or financial records.
+                </p>
+              </div>
+            </div>
+            <div className="space-y-2 text-[11px] text-[#475569]">
+              <p>
+                <strong>Code:</strong> {deleteModal.dependencies?.account?.code}
+              </p>
+              <p>
+                <strong>Title:</strong>{" "}
+                {deleteModal.dependencies?.account?.title}
+              </p>
+              <p>
+                <strong>Type:</strong>{" "}
+                {deleteModal.dependencies?.account?.account_type}
+              </p>
+            </div>
+            <p className="text-xs text-[#64748B]">
+              This action cannot be undone. The account will be permanently
+              removed.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  setDeleteModal({
+                    isOpen: false,
+                    type: null,
+                    dependencies: null,
+                  })
+                }
+              >
+                Cancel
+              </Button>
+              <Button variant="danger" size="sm" onClick={handleDeleteConfirm}>
+                Delete Account
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Delete Account Modal - Used (Cannot Delete) */}
+      {deleteModal.isOpen && deleteModal.type === "used" && (
+        <Modal
+          isOpen={deleteModal.isOpen}
+          onClose={() =>
+            setDeleteModal({ isOpen: false, type: null, dependencies: null })
+          }
+          title="Account Cannot Be Deleted"
+          width="max-w-md"
+        >
+          <div className="space-y-3">
+            <div className="bg-[#FEF2F2] p-3 rounded border border-[#FCA5A5] flex items-center gap-3">
+              <AlertCircle className="w-6 h-6 text-[#DC2626]" />
+              <div>
+                <h4 className="font-bold text-xs text-[#0F172A]">
+                  Account Has Financial History
+                </h4>
+                <p className="text-[11px] text-[#991B1B]">
+                  Cannot be permanently deleted due to existing records.
+                </p>
+              </div>
+            </div>
+            <div className="space-y-2 text-[11px] text-[#475569]">
+              <p>
+                <strong>Code:</strong> {deleteModal.dependencies?.account?.code}
+              </p>
+              <p>
+                <strong>Title:</strong>{" "}
+                {deleteModal.dependencies?.account?.title}
+              </p>
+              <p>
+                <strong>Type:</strong>{" "}
+                {deleteModal.dependencies?.account?.account_type}
+              </p>
+              <p>
+                <strong>Total Ledger Lines:</strong>{" "}
+                {deleteModal.dependencies?.totalLedgerLines}
+              </p>
+              <p>
+                <strong>Total Transactions:</strong>{" "}
+                {deleteModal.dependencies?.totalEntries}
+              </p>
+              {deleteModal.dependencies?.hasOpeningBalance && (
+                <p className="text-[#DC2626]">
+                  <strong>Opening Balance:</strong> Yes (non-zero)
+                </p>
+              )}
+              <div className="bg-[#F8FAFC] p-2 rounded border border-[#E2E8F0]">
+                <p className="font-bold text-xs text-[#475569] mb-1">
+                  Breakdown by Transaction Type:
+                </p>
+                {Object.entries(
+                  deleteModal.dependencies?.byEntryType || {},
+                ).map(([type, count]) => (
+                  <p key={type} className="text-[10px] text-[#64748B] ml-2">
+                    • {type}: {count} line(s)
+                  </p>
+                ))}
+              </div>
+            </div>
+            <p className="text-xs text-[#64748B]">
+              Recommended action: Deactivate the account to preserve history.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  setDeleteModal({
+                    isOpen: false,
+                    type: null,
+                    dependencies: null,
+                  })
+                }
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={Shield}
+                onClick={handleDeleteConfirm}
+              >
+                Deactivate Account
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Sensitive Field Change Warning Modal */}
+      {sensitiveWarningModal.isOpen && (
+        <Modal
+          isOpen={sensitiveWarningModal.isOpen}
+          onClose={() =>
+            setSensitiveWarningModal({
+              isOpen: false,
+              changedFields: [],
+              onConfirm: null,
+            })
+          }
+          title="Warning: Sensitive Fields Modified"
+          width="max-w-md"
+        >
+          <div className="space-y-3">
+            <div className="bg-[#FEF3C7] p-3 rounded border border-[#FDE68A] flex items-center gap-3">
+              <AlertCircle className="w-6 h-6 text-[#92400E]" />
+              <div>
+                <h4 className="font-bold text-xs text-[#0F172A]">
+                  Critical Fields Changed
+                </h4>
+                <p className="text-[11px] text-[#78350F]">
+                  This account has existing financial activity.
+                </p>
+              </div>
+            </div>
+            <p className="text-[11px] text-[#475569]">
+              The following sensitive fields have been modified:
+            </p>
+            <ul className="list-disc list-inside text-[11px] text-[#475569] space-y-1">
+              {sensitiveWarningModal.changedFields.map((field) => (
+                <li key={field}>{field.replace(/_/g, " ")}</li>
+              ))}
+            </ul>
+            <p className="text-xs text-[#DC2626]">
+              Changing these fields may affect historical balances and reports.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  setSensitiveWarningModal({
+                    isOpen: false,
+                    changedFields: [],
+                    onConfirm: null,
+                  })
+                }
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => {
+                  if (sensitiveWarningModal.onConfirm)
+                    sensitiveWarningModal.onConfirm();
+                  setSensitiveWarningModal({
+                    isOpen: false,
+                    changedFields: [],
+                    onConfirm: null,
+                  });
+                }}
+              >
+                Save Anyway
               </Button>
             </div>
           </div>

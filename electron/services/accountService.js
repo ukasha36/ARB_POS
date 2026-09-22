@@ -1,4 +1,5 @@
 const accountRepository = require('../repositories/accountRepository');
+const ledgerRepository = require('../repositories/ledgerRepository');
 
 function sanitizeFk(val) {
   if (val === null || val === undefined || val === '' || val === '0' || val === 0) return null;
@@ -56,8 +57,12 @@ class AccountService {
     return accountRepository.saveAccount(sanitizedData);
   }
 
-  deleteAccount(id) {
-    return accountRepository.deleteOrDeactivate(id);
+  checkDependencies(id) {
+    return accountRepository.checkDependencies(id);
+  }
+
+  deleteAccount(id, options = {}) {
+    return accountRepository.deleteOrDeactivate(id, options);
   }
 
   getLookups() {
@@ -66,6 +71,15 @@ class AccountService {
 
   getAccountBalance(id) {
     return accountRepository.getAccountBalance(id);
+  }
+
+  // Capital account methods
+  getCapitalSummary(capitalAccountId) {
+    return ledgerRepository.getCapitalSummary(capitalAccountId);
+  }
+
+  listCapitalTransactions(capitalAccountId) {
+    return ledgerRepository.listCapitalTransactions(capitalAccountId);
   }
 }
 

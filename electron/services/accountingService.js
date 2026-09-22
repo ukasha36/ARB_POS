@@ -104,12 +104,14 @@ class AccountingService {
 
     const db = getDb();
 
-    // Generate unique sequential reference if missing or client-side placeholder
+// Generate unique sequential reference if missing or client-side placeholder
     if (!reference_no || reference_no.startsWith('INV-') || reference_no === 'AUTO') {
       const prefix = entry_type === 'SALE' ? 'SL-' : 
-                     entry_type === 'SALES_RETURN' ? 'SR-' : 
-                     entry_type === 'PURCHASE' ? 'PR-' : 
-                     entry_type === 'PURCHASE_RETURN' ? 'PRR-' : 'TX-';
+                       entry_type === 'SALES_RETURN' ? 'SR-' : 
+                       entry_type === 'PURCHASE' ? 'PR-' : 
+                       entry_type === 'PURCHASE_RETURN' ? 'PRR-' :
+                       entry_type === 'CAPITAL' ? 'CAP-' :
+                       entry_type === 'CAPITAL_WITHDRAWAL' ? 'CW-' : 'TX-';
       
       // We will generate this inside the transaction to ensure thread safety with SQLite
     }
@@ -121,7 +123,9 @@ class AccountingService {
         const prefix = entry_type === 'SALE' ? 'SL-' : 
                        entry_type === 'SALES_RETURN' ? 'SR-' : 
                        entry_type === 'PURCHASE' ? 'PR-' : 
-                       entry_type === 'PURCHASE_RETURN' ? 'PRR-' : 'TX-';
+                       entry_type === 'PURCHASE_RETURN' ? 'PRR-' :
+                       entry_type === 'CAPITAL' ? 'CAP-' :
+                       entry_type === 'CAPITAL_WITHDRAWAL' ? 'CW-' : 'TX-';
         const lastEntry = db.prepare(`SELECT seq FROM sqlite_sequence WHERE name = 'master_entries'`).get();
         const nextId = (lastEntry ? lastEntry.seq : 0) + 1;
         reference_no = `${prefix}${String(nextId).padStart(6, '0')}`;

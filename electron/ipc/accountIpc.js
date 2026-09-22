@@ -68,6 +68,33 @@ function registerAccountIpc() {
     }
   });
 
+  ipcMain.handle("accounts:checkDependencies", async (event, id) => {
+    try {
+      const data = accountService.checkDependencies(id);
+      return { success: true, data };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle("accounts:getCapitalSummary", async (event, capitalAccountId) => {
+    try {
+      const data = accountService.getCapitalSummary(capitalAccountId);
+      return { success: true, data };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle("accounts:listCapitalTransactions", async (event, capitalAccountId) => {
+    try {
+      const data = accountService.listCapitalTransactions(capitalAccountId);
+      return { success: true, data };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
   ipcMain.handle("accounts:getLookups", async () => {
     try {
       const data = accountService.getLookups();

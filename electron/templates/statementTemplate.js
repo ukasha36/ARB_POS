@@ -9,7 +9,8 @@ const TRANSACTION_LABELS = {
   HO_INCOMING: 'Receipt',
   PAYMENT: 'Payment',
   HO_OUTGOING: 'Payment',
-  CAPITAL: 'Capital',
+  CAPITAL: 'Capital Investment',
+  CAPITAL_WITHDRAWAL: 'Capital Withdrawal',
 };
 
 function escapeHtml(value) {

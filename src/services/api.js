@@ -63,6 +63,18 @@ export const api = {
       if (hasElectron) return await window.electronAPI.accounts.delete(id);
       return { success: true, action: 'deleted', message: 'Account deleted' };
     },
+    checkDependencies: async (id) => {
+      if (hasElectron) return await window.electronAPI.accounts.checkDependencies(id);
+      return { success: true, data: { canHardDelete: true, totalLedgerLines: 0, totalEntries: 0, byEntryType: {}, hasOpeningBalance: false, account: {} } };
+    },
+    getCapitalSummary: async (capitalAccountId) => {
+      if (hasElectron) return await window.electronAPI.accounts.getCapitalSummary(capitalAccountId);
+      return { success: true, data: { accountId: capitalAccountId, openingEquity: 0, totalInvested: 0, totalWithdrawn: 0, currentCapital: 0 } };
+    },
+    listCapitalTransactions: async (capitalAccountId) => {
+      if (hasElectron) return await window.electronAPI.accounts.listCapitalTransactions(capitalAccountId);
+      return { success: true, data: [] };
+    },
     getLookups: async () => {
       if (hasElectron) return await window.electronAPI.accounts.getLookups();
       return { success: true, data: { areas: [], subAreas: [], salesmen: [], categories: [] } };

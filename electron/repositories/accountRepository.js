@@ -192,17 +192,76 @@ class AccountRepository extends BaseRepository {
     }
   }
 
+  checkDependencies(accountId) {
+    const id = parseInt(accountId, 10);
+    if (isNaN(id)) {
+      throw new Error('Invalid account ID');
+    }
+
+    const account = this.db.prepare('SELECT id, code, title, account_type, status, opening_balance, opening_balance_type FROM accounts WHERE id = ?').get(id);
+    if (!account) {
+      throw new Error(`Account with ID ${accountId} not found`);
+    }
+
+    // Total ledger lines for this account
+    const lineResult = this.db.prepare('SELECT COUNT(*) as count FROM ledger_lines WHERE account_id = ?').get(id);
+    const totalLedgerLines = lineResult ? Number(lineResult.count) : 0;
+
+    // Distinct master entries (transactions)
+    const entryResult = this.db.prepare('SELECT COUNT(DISTINCT entry_id) as count FROM ledger_lines WHERE account_id = ?').get(id);
+    const totalEntries = entryResult ? Number(entryResult.count) : 0;
+
+    // Breakdown by entry_type
+    const byTypeRows = this.db.prepare(`
+      SELECT me.entry_type, COUNT(*) as count
+      FROM ledger_lines ll
+      JOIN master_entries me ON ll.entry_id = me.id
+      WHERE ll.account_id = ? AND me.status = 'POSTED'
+      GROUP BY me.entry_type
+    `).all(id);
+
+    const byEntryType = {};
+    for (const row of byTypeRows) {
+      byEntryType[row.entry_type] = Number(row.count);
+    }
+
+    // Check for meaningful opening balance
+    const openingBalance = Number(account.opening_balance || 0);
+    const hasOpeningBalance = openingBalance !== 0;
+
+    // Can hard delete only if zero ledger lines AND no meaningful opening balance
+    const canHardDelete = totalLedgerLines === 0 && !hasOpeningBalance;
+
+    return {
+      canHardDelete,
+      totalLedgerLines,
+      totalEntries,
+      byEntryType,
+      hasOpeningBalance,
+      account: {
+        id: account.id,
+        code: account.code,
+        title: account.title,
+        account_type: account.account_type,
+        status: account.status,
+      },
+    };
+  }
+
   deleteOrDeactivate(id) {
-    // Check if account has ledger lines posted
-    const lineCount = this.db.prepare('SELECT COUNT(*) as count FROM ledger_lines WHERE account_id = ?').get(id).count;
-    if (lineCount > 0) {
-      // Deactivate
-      this.db.prepare("UPDATE accounts SET status = 'Inactive', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(id);
-      return { success: true, action: 'deactivated', message: 'Account has historical transactions; status updated to Inactive.' };
-    } else {
-      // Hard delete safely
+    const dep = this.checkDependencies(id);
+
+    if (dep.canHardDelete) {
       this.db.prepare('DELETE FROM accounts WHERE id = ?').run(id);
-      return { success: true, action: 'deleted', message: 'Account deleted successfully.' };
+      return { success: true, action: 'deleted', message: 'Account deleted successfully.', dependencies: dep };
+    } else {
+      this.db.prepare("UPDATE accounts SET status = 'Inactive', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(id);
+      return { 
+        success: true, 
+        action: 'deactivated', 
+        message: 'Account has historical transactions or opening balance; status updated to Inactive.', 
+        dependencies: dep 
+      };
     }
   }
 

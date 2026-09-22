@@ -3,9 +3,9 @@ import { Modal } from '../common/Modal';
 import { TableWrapper } from '../common/TableWrapper';
 import { api } from '../../services/api';
 import { formatCurrency } from '../../utils/formatters';
-import { Search, Filter } from 'lucide-react';
+import { Search, Filter, Edit, Trash2 } from 'lucide-react';
 
-export function AccountListModal({ isOpen, onClose, onSelectAccount }) {
+export function AccountListModal({ isOpen, onClose, onSelectAccount, onRequestDelete }) {
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
@@ -86,6 +86,40 @@ export function AccountListModal({ isOpen, onClose, onSelectAccount }) {
           }`}>
             {val}
           </span>
+        );
+      },
+    },
+    {
+      header: 'Actions',
+      accessorKey: 'id',
+      cell: (info) => {
+        const record = info.row.original;
+        return (
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => {
+                if (onSelectAccount) {
+                  onSelectAccount(record);
+                  onClose();
+                }
+              }}
+              className="p-1 text-[#2563EB] hover:bg-[#EFF6FF] rounded transition-colors"
+              title="View / Edit"
+            >
+              <Edit className="w-3.5 h-3.5" />
+            </button>
+            {onRequestDelete && (
+              <button
+                type="button"
+                onClick={() => onRequestDelete(record)}
+                className="p-1 text-[#DC2626] hover:bg-[#FEF2F2] rounded transition-colors"
+                title="Delete"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         );
       },
     },

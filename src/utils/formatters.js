@@ -22,7 +22,8 @@ const ENTRY_TYPE_LABELS = {
   PURCHASE: "Purchase",
   SALES_RETURN: "Sale Return",
   PURCHASE_RETURN: "Purchase Return",
-  CAPITAL: "Capital",
+  CAPITAL: "Capital Investment",
+  CAPITAL_WITHDRAWAL: "Capital Withdrawal",
 };
 
 export function entryTypeLabel(type) {
