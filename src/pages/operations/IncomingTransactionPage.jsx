@@ -5,10 +5,14 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
+  History,
+  Trash2,
 } from "lucide-react";
 import { Button } from "../../components/common/Button";
+import { Modal } from "../../components/common/Modal";
+import { TransactionHistoryTable } from "../../components/transactions/TransactionHistoryTable";
 import { api } from "../../services/api";
-import { formatCurrency, entryTypeLabel } from "../../utils/formatters";
+import { formatCurrency, entryTypeLabel, safeNum, safeStr, safeId } from "../../utils/formatters";
 
 export function IncomingTransactionPage() {
   const [cashBankAccounts, setCashBankAccounts] = useState([]);
@@ -26,6 +30,23 @@ export function IncomingTransactionPage() {
 
   const [status, setStatus] = useState(null);
   const [posting, setPosting] = useState(false);
+  const [incomingTxns, setIncomingTxns] = useState([]);
+  const [editingEntryId, setEditingEntryId] = useState(null);
+  const [voidConfirm, setVoidConfirm] = useState({ isOpen: false, tx: null });
+
+  useEffect(() => {
+    loadAccounts();
+    loadTransactions();
+  }, []);
+
+  const loadTransactions = async () => {
+    try {
+      const res = await api.transactions.list({ entry_type: "HO_INCOMING" });
+      if (res.success) setIncomingTxns(res.data);
+    } catch (err) {
+      console.error("Failed to load incoming transactions", err);
+    }
+  };
 
   // Party ledger side panel
   const [ledgerRecords, setLedgerRecords] = useState([]);
@@ -130,18 +151,24 @@ export function IncomingTransactionPage() {
         ],
       };
 
-      const res = await api.transactions.post(transactionData);
+      const res = editingEntryId
+        ? await api.transactions.edit(editingEntryId, transactionData)
+        : await api.transactions.post(transactionData);
       if (res.success) {
         setStatus({
           type: "success",
-          text: `Wasool save ho gaya. ${formatCurrency(numAmount)} add. Customer ka lena kam. Check: Customer Ledger`,
+          text: editingEntryId
+            ? `Receipt updated! ${formatCurrency(numAmount)} (Ref: ${transactionData.reference_no})`
+            : `Wasool save ho gaya. ${formatCurrency(numAmount)} add. Customer ka lena kam. Check: Customer Ledger`,
         });
+        setEditingEntryId(null);
         setAmount("");
         setReference("");
         // Refresh the party ledger
         if (sourceAccountId) {
           loadCustomerLedger(sourceAccountId);
         }
+        loadTransactions();
       } else {
         setStatus({
           type: "error",
@@ -152,6 +179,56 @@ export function IncomingTransactionPage() {
       setStatus({ type: "error", text: err.message });
     } finally {
       setPosting(false);
+    }
+  };
+
+  const confirmVoid = async () => {
+    const tx = voidConfirm.tx;
+    setVoidConfirm({ isOpen: false, tx: null });
+    try {
+      const res = await api.transactions.void(tx.entry_id);
+      if (res.success) {
+        setStatus({ type: "success", text: res.message });
+        loadTransactions();
+        if (sourceAccountId) loadCustomerLedger(sourceAccountId);
+      } else {
+        setStatus({ type: "error", text: res.error || "Failed to void transaction" });
+      }
+    } catch (err) {
+      setStatus({ type: "error", text: err.message });
+    }
+  };
+
+  const handleVoidIncoming = (tx) => {
+    setVoidConfirm({ isOpen: true, tx });
+  };
+
+  const handleEditIncoming = async (tx) => {
+    try {
+      const res = await api.transactions.get(tx.entry_id);
+      if (res.success && res.data) {
+        const fullTx = res.data;
+        const debitLines = fullTx.debit_lines || [];
+        const creditLines = fullTx.credit_lines || [];
+
+        setEditingEntryId(tx.entry_id);
+        setDate(safeStr(fullTx.date));
+        setReference(safeStr(fullTx.reference_no));
+        setDescription(safeStr(fullTx.description));
+
+        const cashDebit = debitLines.find(l => l.account_type === 'CASH' || l.account_type === 'BANK');
+        if (cashDebit) setDepositAccountId(safeId(cashDebit.account_id));
+
+        const sourceCredit = creditLines.find(l => l.account_type === 'CUSTOMER' || l.account_type === 'REVENUE' || l.account_type === 'OTHER_INCOME');
+        if (sourceCredit) setSourceAccountId(safeId(sourceCredit.account_id));
+
+        const cashLine = debitLines.find(l => l.account_type === 'CASH' || l.account_type === 'BANK');
+        if (cashLine) setAmount(safeStr(safeNum(cashLine.amount)));
+
+        setStatus({ type: "success", text: "Transaction loaded for editing. Modify fields and re-post." });
+      }
+    } catch (err) {
+      setStatus({ type: "error", text: err.message });
     }
   };
 
@@ -451,8 +528,64 @@ export function IncomingTransactionPage() {
               </>
             )}
           </div>
-        </div>
       </div>
     </div>
+
+    {/* Transaction History */}
+    <div className="bg-white border border-[#E2E8F0] rounded-[4px] p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <History className="w-4 h-4 text-[#64748B]" />
+          <h4 className="text-xs font-bold text-[#0F172A] uppercase tracking-wider">
+            RECEIPT VOUCHERS
+          </h4>
+        </div>
+        <button
+          onClick={loadTransactions}
+          className="text-[11px] text-[#64748B] hover:text-[#2563EB] font-medium"
+          title="Refresh"
+        >
+          Refresh
+        </button>
+      </div>
+        <TransactionHistoryTable
+          records={incomingTxns}
+          onEdit={handleEditIncoming}
+          onVoid={handleVoidIncoming}
+        />
+    </div>
+
+    {voidConfirm.isOpen && voidConfirm.tx && (
+      <Modal
+        title="Confirm Void"
+        isOpen={voidConfirm.isOpen}
+        onClose={() => setVoidConfirm({ isOpen: false, tx: null })}
+        size="md"
+      >
+        <div className="p-4">
+          <p className="text-xs text-[#475569] mb-2">
+            Void receipt #{voidConfirm.tx.reference_no}? This reverses all ledger effects and cannot be undone.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setVoidConfirm({ isOpen: false, tx: null })}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              icon={Trash2}
+              onClick={confirmVoid}
+            >
+              Void
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    )}
+  </div>
   );
 }

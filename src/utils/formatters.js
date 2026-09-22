@@ -3,12 +3,28 @@
  * Example: 1245800.5 -> "Rs. 1,245,800.50"
  */
 export function formatCurrency(amount) {
-  const num = Number(amount) || 0;
+  const num = Number(amount);
+  if (!Number.isFinite(num)) return "Rs. 0.00";
   const formatted = num.toLocaleString('en-PK', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
   return `Rs. ${formatted}`;
+}
+
+export function safeNum(v, fallback = 0) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+export function safeStr(v, fallback = "") {
+  if (v === null || v === undefined) return fallback;
+  return String(v);
+}
+
+export function safeId(v) {
+  if (v === null || v === undefined || v === "") return "";
+  return String(v);
 }
 
 export function formatPKR(amount) {

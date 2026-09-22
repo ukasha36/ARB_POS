@@ -113,6 +113,22 @@ export const api = {
       if (hasElectron) return await window.electronAPI.transactions.post(transactionData);
       return { success: true, message: 'Transaction posted' };
     },
+    get: async (entryId) => {
+      if (hasElectron) return await window.electronAPI.transactions.get(entryId);
+      return { success: true, data: null };
+    },
+    list: async (filters = {}) => {
+      if (hasElectron) return await window.electronAPI.transactions.list(filters);
+      return { success: true, data: [] };
+    },
+    void: async (entryId) => {
+      if (hasElectron) return await window.electronAPI.transactions.void(entryId);
+      return { success: true, message: 'Transaction voided' };
+    },
+    edit: async (entryId, newPayload) => {
+      if (hasElectron) return await window.electronAPI.transactions.edit(entryId, newPayload);
+      return { success: true, message: 'Transaction edited' };
+    },
   },
 
   setups: {

@@ -35,6 +35,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   transactions: {
     post: (data) => ipcRenderer.invoke('transactions:post', data),
+    get: (entryId) => ipcRenderer.invoke('transactions:get', entryId),
+    list: (filters) => ipcRenderer.invoke('transactions:list', filters),
+    void: (entryId) => ipcRenderer.invoke('transactions:void', entryId),
+    edit: (entryId, newPayload) => ipcRenderer.invoke('transactions:edit', entryId, newPayload),
   },
   reports: {
     dashboardOverview: () => ipcRenderer.invoke('reports:dashboardOverview'),

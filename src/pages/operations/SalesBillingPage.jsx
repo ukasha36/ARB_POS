@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Calculator, Plus, Trash2, Save, Search, CheckCircle2, AlertCircle, Barcode } from 'lucide-react';
+import { Calculator, Plus, Trash2, Save, Search, CheckCircle2, AlertCircle, Barcode, History } from 'lucide-react';
 import { Button } from '../../components/common/Button';
+import { Modal } from '../../components/common/Modal';
+import { TransactionHistoryTable } from '../../components/transactions/TransactionHistoryTable';
 import { api } from '../../services/api';
-import { formatCurrency } from '../../utils/formatters';
+import { formatCurrency, safeNum, safeStr, safeId } from '../../utils/formatters';
 
 export function SalesBillingPage() {
   const [customers, setCustomers] = useState([]);
@@ -24,10 +26,22 @@ export function SalesBillingPage() {
 
   const [status, setStatus] = useState(null);
   const [posting, setPosting] = useState(false);
+  const [sales, setSales] = useState([]);
+  const [editingEntryId, setEditingEntryId] = useState(null);
 
   useEffect(() => {
     loadMasterData();
+    loadTransactions();
   }, []);
+
+  const loadTransactions = async () => {
+    try {
+      const res = await api.transactions.list({ entry_type: 'SALE' });
+      if (res.success) setSales(res.data);
+    } catch (err) {
+      console.error('Failed to load sales', err);
+    }
+  };
 
   const loadMasterData = async () => {
     try {
@@ -207,16 +221,22 @@ export function SalesBillingPage() {
         inventory_lines,
       };
 
-      const res = await api.transactions.post(transactionData);
+      const res = editingEntryId
+        ? await api.transactions.edit(editingEntryId, transactionData)
+        : await api.transactions.post(transactionData);
       if (res.success) {
         setStatus({
           type: 'success',
-          text: `Sales Invoice #${res.referenceNo || invoiceNo} completed! Total: ${formatCurrency(grandTotal)} (Cash Recv: ${formatCurrency(numPaid)}, Customer Credit: ${formatCurrency(creditBalance)}). Stock reduced.`,
+          text: editingEntryId
+            ? `Sales invoice updated! #${invoiceNo} (Total: ${formatCurrency(grandTotal)})`
+            : `Sales Invoice #${res.referenceNo || invoiceNo} completed! Total: ${formatCurrency(grandTotal)} (Cash Recv: ${formatCurrency(numPaid)}, Customer Credit: ${formatCurrency(creditBalance)}). Stock reduced.`,
         });
+        setEditingEntryId(null);
         setInvoiceNo(`INV-${Date.now().toString().slice(-5)}`);
         setPaidAmount('0');
         setRemarks('');
         loadMasterData();
+        loadTransactions();
       } else {
         setStatus({ type: 'error', text: res.error || 'Failed to post sales billing' });
       }
@@ -225,6 +245,73 @@ export function SalesBillingPage() {
     } finally {
       setPosting(false);
     }
+  };
+
+  const [voidConfirm, setVoidConfirm] = useState({ isOpen: false, tx: null });
+
+  const handleEditSale = async (tx) => {
+    try {
+      const res = await api.transactions.get(tx.entry_id);
+      if (res.success && res.data) {
+        const fullTx = res.data;
+        const debitLines = fullTx.debit_lines || [];
+        const creditLines = fullTx.credit_lines || [];
+        const inventoryLines = fullTx.inventory_lines || [];
+
+        setEditingEntryId(tx.entry_id);
+        setDate(safeStr(fullTx.date));
+        setInvoiceNo(safeStr(fullTx.reference_no));
+        setRemarks(safeStr(fullTx.description));
+
+        const salesCredit = creditLines.find(l => l.account_type === 'REVENUE' || l.account_type === 'SALES' || l.account_type === 'INCOME');
+        if (salesCredit) setSalesRevenueAccount({ id: salesCredit.account_id });
+
+        const cashDebit = debitLines.find(l => l.account_type === 'CASH' || l.account_type === 'BANK');
+        if (cashDebit) setDepositAccountId(safeId(cashDebit.account_id));
+
+        const customerDebit = debitLines.find(l => l.account_type === 'CUSTOMER');
+        if (customerDebit) setCustomerId(safeId(customerDebit.account_id));
+
+        if (inventoryLines.length > 0) {
+          const newLineItems = inventoryLines.map(il => ({
+            item_id: safeId(il.item_id),
+            qty: safeStr(safeNum(il.qty, 1)),
+            unit_price: safeStr(safeNum(il.unit_price, 0)),
+            discount: 0,
+            total: safeStr(safeNum(il.total_price, 0)),
+          }));
+          setLineItems(newLineItems);
+        }
+
+        const cashPayment = debitLines.find(l => l.account_type === 'CASH' || l.account_type === 'BANK');
+        if (cashPayment) setPaidAmount(safeStr(safeNum(cashPayment.amount)));
+
+        setStatus({ type: "success", text: "Transaction loaded for editing. Modify fields and re-post." });
+      }
+    } catch (err) {
+      setStatus({ type: "error", text: err.message });
+    }
+  };
+
+  const confirmVoid = async () => {
+    const tx = voidConfirm.tx;
+    setVoidConfirm({ isOpen: false, tx: null });
+    try {
+      const res = await api.transactions.void(tx.entry_id);
+      if (res.success) {
+        setStatus({ type: "success", text: res.message });
+        loadTransactions();
+        loadMasterData();
+      } else {
+        setStatus({ type: "error", text: res.error || "Failed to void transaction" });
+      }
+    } catch (err) {
+      setStatus({ type: "error", text: err.message });
+    }
+  };
+
+  const handleVoidSale = (tx) => {
+    setVoidConfirm({ isOpen: true, tx });
   };
 
   return (
@@ -468,6 +555,62 @@ export function SalesBillingPage() {
           </Button>
         </div>
       </form>
+
+      {/* Transaction History */}
+      <div className="bg-white border border-[#E2E8F0] rounded-[4px] p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <History className="w-4 h-4 text-[#64748B]" />
+            <h4 className="text-xs font-bold text-[#0F172A] uppercase tracking-wider">
+              SALES INVOICES
+            </h4>
+          </div>
+          <button
+            onClick={loadTransactions}
+            className="text-[11px] text-[#64748B] hover:text-[#2563EB] font-medium"
+            title="Refresh"
+          >
+            Refresh
+          </button>
+        </div>
+        <TransactionHistoryTable
+          records={sales}
+          onEdit={handleEditSale}
+          onVoid={handleVoidSale}
+        />
+      </div>
+
+      {voidConfirm.isOpen && voidConfirm.tx && (
+        <Modal
+          title="Confirm Void"
+          isOpen={voidConfirm.isOpen}
+          onClose={() => setVoidConfirm({ isOpen: false, tx: null })}
+          size="md"
+        >
+          <div className="p-4">
+            <p className="text-xs text-[#475569] mb-2">
+              Void sales invoice #{voidConfirm.tx.reference_no}? This reverses all ledger and inventory effects and cannot be undone.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setVoidConfirm({ isOpen: false, tx: null })}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                icon={Trash2}
+                onClick={confirmVoid}
+              >
+                Void
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

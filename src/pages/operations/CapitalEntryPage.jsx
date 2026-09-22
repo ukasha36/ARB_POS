@@ -10,8 +10,10 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { Button } from '../../components/common/Button';
+import { Modal } from '../../components/common/Modal';
+import { TransactionHistoryTable } from '../../components/transactions/TransactionHistoryTable';
 import { api } from '../../services/api';
-import { formatCurrency, entryTypeLabel } from '../../utils/formatters';
+import { formatCurrency, safeNum, safeStr, safeId } from '../../utils/formatters';
 
 export function CapitalEntryPage() {
   const [capitalAccounts, setCapitalAccounts] = useState([]);
@@ -42,6 +44,7 @@ export function CapitalEntryPage() {
 
   const [status, setStatus] = useState(null);
   const [posting, setPosting] = useState(false);
+  const [editingEntryId, setEditingEntryId] = useState(null);
 
   useEffect(() => {
     loadAccounts();
@@ -128,12 +131,17 @@ export function CapitalEntryPage() {
         ],
       };
 
-      const res = await api.transactions.post(transactionData);
+      const res = editingEntryId
+        ? await api.transactions.edit(editingEntryId, transactionData)
+        : await api.transactions.post(transactionData);
       if (res.success) {
         setStatus({
           type: 'success',
-          text: `Capital investment posted! ${formatCurrency(numAmount)} added. (Ref: ${transactionData.reference_no})`,
+          text: editingEntryId
+            ? `Capital entry updated! ${formatCurrency(numAmount)} (Ref: ${transactionData.reference_no})`
+            : `Capital investment posted! ${formatCurrency(numAmount)} added. (Ref: ${transactionData.reference_no})`,
         });
+        setEditingEntryId(null);
         setInvAmount('');
         setInvReference('');
         await loadCapitalData(selectedCapitalAccountId);
@@ -194,12 +202,17 @@ export function CapitalEntryPage() {
         ],
       };
 
-      const res = await api.transactions.post(transactionData);
+      const res = editingEntryId
+        ? await api.transactions.edit(editingEntryId, transactionData)
+        : await api.transactions.post(transactionData);
       if (res.success) {
         setStatus({
           type: 'success',
-          text: `Capital withdrawal posted! ${formatCurrency(numAmount)} withdrawn. (Ref: ${transactionData.reference_no})`,
+          text: editingEntryId
+            ? `Capital entry updated! ${formatCurrency(numAmount)} withdrawn. (Ref: ${transactionData.reference_no})`
+            : `Capital withdrawal posted! ${formatCurrency(numAmount)} withdrawn. (Ref: ${transactionData.reference_no})`,
         });
+        setEditingEntryId(null);
         setWdAmount('');
         setWdReference('');
         await loadCapitalData(selectedCapitalAccountId);
@@ -219,6 +232,70 @@ export function CapitalEntryPage() {
   const selectedCapitalAccount = capitalAccounts.find(
     (a) => a.id === selectedCapitalAccountId,
   );
+
+  const [voidConfirm, setVoidConfirm] = useState({ isOpen: false, tx: null });
+
+  const handleEditTransaction = async (tx) => {
+    try {
+      const res = await api.transactions.get(tx.entry_id);
+      if (res.success && res.data) {
+        const fullTx = res.data;
+        const debitLines = fullTx.debit_lines || [];
+        const creditLines = fullTx.credit_lines || [];
+        const amount = safeNum(fullTx.total_amount);
+
+        setEditingEntryId(tx.entry_id);
+
+        if (fullTx.entry_type === 'CAPITAL') {
+          setActiveTab('investment');
+          setInvDate(safeStr(fullTx.date));
+          setInvAmount(amount > 0 ? amount.toString() : '');
+          setInvReference(safeStr(fullTx.reference_no));
+          setInvDescription(safeStr(fullTx.description));
+          if (creditLines.length > 0) {
+            setSelectedCapitalAccountId(safeId(creditLines[0].account_id));
+          }
+          if (debitLines.length > 0) {
+            setInvCashBankAccountId(safeId(debitLines[0].account_id));
+          }
+        } else if (fullTx.entry_type === 'CAPITAL_WITHDRAWAL') {
+          setActiveTab('withdrawal');
+          setWdDate(safeStr(fullTx.date));
+          setWdAmount(amount > 0 ? amount.toString() : '');
+          setWdReference(safeStr(fullTx.reference_no));
+          setWdDescription(safeStr(fullTx.description));
+          if (debitLines.length > 0) {
+            setSelectedCapitalAccountId(safeId(debitLines[0].account_id));
+          }
+          if (creditLines.length > 0) {
+            setWdCashBankAccountId(safeId(creditLines[0].account_id));
+          }
+        }
+      }
+    } catch (err) {
+      setStatus({ type: 'error', text: err.message });
+    }
+  };
+
+  const handleVoidTransaction = (tx) => {
+    setVoidConfirm({ isOpen: true, tx });
+  };
+
+  const confirmVoid = async () => {
+    const tx = voidConfirm.tx;
+    setVoidConfirm({ isOpen: false, tx: null });
+    try {
+      const res = await api.transactions.void(tx.entry_id);
+      if (res.success) {
+        setStatus({ type: 'success', text: res.message });
+        if (selectedCapitalAccountId) loadCapitalData(selectedCapitalAccountId);
+      } else {
+        setStatus({ type: 'error', text: res.error || 'Failed to void transaction' });
+      }
+    } catch (err) {
+      setStatus({ type: 'error', text: err.message });
+    }
+  };
 
   return (
     <div className="space-y-4 max-w-6xl select-none">
@@ -615,7 +692,7 @@ export function CapitalEntryPage() {
             </div>
 
             {capitalLoading ? (
-              <div className="flex items-center justify-center py-4">
+              <div className="flex items-center justify-center py-6">
                 <div className="animate-spin rounded-full h-4 w-4 border-2 border-[#2563EB] border-t-transparent"></div>
                 <span className="ml-2 text-[11px] text-[#64748B]">
                   Loading transactions...
@@ -625,69 +702,48 @@ export function CapitalEntryPage() {
               <p className="text-center text-[11px] text-[#94A3B8] py-4">
                 Select a capital account to view transactions
               </p>
-            ) : capitalTransactions.length === 0 ? (
-              <p className="text-center text-[11px] text-[#94A3B8] py-4">
-                No capital transactions recorded
-              </p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-[10px] border-collapse">
-                  <thead className="bg-[#F8FAFC] border-b border-[#E2E8F0]">
-                    <tr>
-                      <th className="px-2 py-1.5 font-bold text-[#475569] uppercase">Date</th>
-                      <th className="px-2 py-1.5 font-bold text-[#475569] uppercase">Type</th>
-                      <th className="px-2 py-1.5 font-bold text-[#475569] uppercase">Description</th>
-                      <th className="px-2 py-1.5 font-bold text-[#475569] uppercase">Ref #</th>
-                      <th className="px-2 py-1.5 font-bold text-[#475569] uppercase text-right">Amount (Rs.)</th>
-                      <th className="px-2 py-1.5 font-bold text-[#475569] uppercase text-right">Running Balance</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#E2E8F0]">
-                    {capitalTransactions.map((t) => (
-                      <tr key={t.entry_id} className="hover:bg-[#F8FAFC]">
-                        <td className="px-2 py-1 font-mono text-[#475569]">
-                          {t.date}
-                        </td>
-                        <td className="px-2 py-1">
-                          <span
-                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold border ${
-                              t.entry_type === 'CAPITAL'
-                                ? 'bg-[#DCFCE7] text-[#166534] border-[#86EFAC]'
-                                : 'bg-[#FEF2F2] text-[#991B1B] border-[#FCA5A5]'
-                            }`}
-                          >
-                            {entryTypeLabel(t.entry_type)}
-                          </span>
-                        </td>
-                        <td className="px-2 py-1 text-[#475569] max-w-xs truncate block">
-                          {t.description || '—'}
-                        </td>
-                        <td className="px-2 py-1 font-mono text-[#0F172A]">
-                          {t.reference_no || '—'}
-                        </td>
-                        <td className="px-2 py-1 text-right font-mono font-bold">
-                          {t.amount >= 0 ? (
-                            <span className="text-[#16A34A]">
-                              +{formatCurrency(t.amount)}
-                            </span>
-                          ) : (
-                            <span className="text-[#DC2626]">
-                              {formatCurrency(t.amount)}
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-2 py-1 text-right font-mono font-bold text-[#0F172A]">
-                          {formatCurrency(t.running_balance)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <TransactionHistoryTable
+                records={capitalTransactions}
+                loading={false}
+                onEdit={handleEditTransaction}
+                onVoid={handleVoidTransaction}
+              />
             )}
           </div>
         </div>
       </div>
+
+      {voidConfirm.isOpen && voidConfirm.tx && (
+        <Modal
+          title="Confirm Void"
+          isOpen={voidConfirm.isOpen}
+          onClose={() => setVoidConfirm({ isOpen: false, tx: null })}
+          width="max-w-sm"
+        >
+          <div className="p-4">
+            <p className="text-xs text-[#475569] mb-2">
+              Void {voidConfirm.tx.entry_type} "{voidConfirm.tx.reference_no}"? This reverses all effects and cannot be undone.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setVoidConfirm({ isOpen: false, tx: null })}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={confirmVoid}
+              >
+                Void Transaction
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

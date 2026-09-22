@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { RotateCcw, Save, CheckCircle2, AlertCircle } from 'lucide-react';
+import { RotateCcw, Save, CheckCircle2, AlertCircle, History, Trash2 } from 'lucide-react';
 import { Button } from '../../components/common/Button';
+import { Modal } from '../../components/common/Modal';
+import { TransactionHistoryTable } from '../../components/transactions/TransactionHistoryTable';
 import { api } from '../../services/api';
-import { formatCurrency } from '../../utils/formatters';
+import { formatCurrency, safeNum, safeStr, safeId } from '../../utils/formatters';
 
 export function PurchaseReturnPage() {
   const [suppliers, setSuppliers] = useState([]);
@@ -19,10 +21,22 @@ export function PurchaseReturnPage() {
 
   const [status, setStatus] = useState(null);
   const [posting, setPosting] = useState(false);
+  const [returns, setReturns] = useState([]);
+  const [editingEntryId, setEditingEntryId] = useState(null);
 
   useEffect(() => {
     loadMasterData();
+    loadTransactions();
   }, []);
+
+  const loadTransactions = async () => {
+    try {
+      const res = await api.transactions.list({ entry_type: 'PURCHASE_RETURN' });
+      if (res.success) setReturns(res.data);
+    } catch (err) {
+      console.error('Failed to load purchase returns', err);
+    }
+  };
 
   const loadMasterData = async () => {
     try {
@@ -110,15 +124,21 @@ export function PurchaseReturnPage() {
         ],
       };
 
-      const res = await api.transactions.post(transactionData);
+      const res = editingEntryId
+        ? await api.transactions.edit(editingEntryId, transactionData)
+        : await api.transactions.post(transactionData);
       if (res.success) {
         setStatus({
           type: 'success',
-          text: `Purchase Return posted! Amount: ${formatCurrency(numAmount)}. Stock reduced by ${numQty} units.`,
+          text: editingEntryId
+            ? `Purchase return updated! Amount: ${formatCurrency(numAmount)}`
+            : `Purchase Return posted! Amount: ${formatCurrency(numAmount)}. Stock reduced by ${numQty} units.`,
         });
+        setEditingEntryId(null);
         setQty('1');
         setReference('');
         loadMasterData();
+        loadTransactions();
       } else {
         setStatus({ type: 'error', text: res.error || 'Failed to post purchase return' });
       }
@@ -127,6 +147,60 @@ export function PurchaseReturnPage() {
     } finally {
       setPosting(false);
     }
+  };
+
+  const [voidConfirm, setVoidConfirm] = useState({ isOpen: false, tx: null });
+
+  const handleEditReturn = async (tx) => {
+    try {
+      const res = await api.transactions.get(tx.entry_id);
+      if (res.success && res.data) {
+        const fullTx = res.data;
+        const debitLines = fullTx.debit_lines || [];
+        const creditLines = fullTx.credit_lines || [];
+        const inventoryLines = fullTx.inventory_lines || [];
+
+        setEditingEntryId(tx.entry_id);
+        setDate(safeStr(fullTx.date));
+        setReference(safeStr(fullTx.reference_no));
+        setReason(safeStr(fullTx.description));
+
+        const supplierLine = creditLines.find(l => l.account_type === 'SUPPLIER') || creditLines[0];
+        if (supplierLine) setSupplierId(safeId(supplierLine.account_id));
+
+        if (inventoryLines.length > 0) {
+          const inv = inventoryLines[0];
+          setItemId(safeId(inv.item_id));
+          setQty(safeStr(safeNum(inv.qty, 1)));
+          setReturnAmount(safeStr(safeNum(inv.total_price)));
+        }
+
+        setStatus({ type: 'success', text: 'Transaction loaded for editing. Modify fields and re-post.' });
+      }
+    } catch (err) {
+      setStatus({ type: 'error', text: err.message });
+    }
+  };
+
+  const confirmVoid = async () => {
+    const tx = voidConfirm.tx;
+    setVoidConfirm({ isOpen: false, tx: null });
+    try {
+      const res = await api.transactions.void(tx.entry_id);
+      if (res.success) {
+        setStatus({ type: 'success', text: res.message });
+        loadTransactions();
+        loadMasterData();
+      } else {
+        setStatus({ type: 'error', text: res.error || 'Failed to void transaction' });
+      }
+    } catch (err) {
+      setStatus({ type: 'error', text: err.message });
+    }
+  };
+
+  const handleVoidReturn = (tx) => {
+    setVoidConfirm({ isOpen: true, tx });
   };
 
   return (
@@ -253,6 +327,62 @@ export function PurchaseReturnPage() {
           </Button>
         </div>
       </form>
+
+      {/* Transaction History */}
+      <div className="bg-white border border-[#E2E8F0] rounded-[4px] p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <History className="w-4 h-4 text-[#64748B]" />
+            <h4 className="text-xs font-bold text-[#0F172A] uppercase tracking-wider">
+              PURCHASE RETURNS
+            </h4>
+          </div>
+          <button
+            onClick={loadTransactions}
+            className="text-[11px] text-[#64748B] hover:text-[#2563EB] font-medium"
+            title="Refresh"
+          >
+            Refresh
+          </button>
+        </div>
+        <TransactionHistoryTable
+          records={returns}
+          onEdit={handleEditReturn}
+          onVoid={handleVoidReturn}
+        />
+      </div>
+
+      {voidConfirm.isOpen && voidConfirm.tx && (
+        <Modal
+          title="Confirm Void"
+          isOpen={voidConfirm.isOpen}
+          onClose={() => setVoidConfirm({ isOpen: false, tx: null })}
+          size="md"
+        >
+          <div className="p-4">
+            <p className="text-xs text-[#475569] mb-2">
+              Void purchase return #{voidConfirm.tx.reference_no}? This reverses all ledger and inventory effects and cannot be undone.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setVoidConfirm({ isOpen: false, tx: null })}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                icon={Trash2}
+                onClick={confirmVoid}
+              >
+                Void
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

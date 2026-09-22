@@ -280,13 +280,14 @@ class AccountRepository extends BaseRepository {
 
     let balance = account.opening_balance_type === 'Dr' ? account.opening_balance : -account.opening_balance;
 
-    const totals = this.db.prepare(`
-      SELECT 
-        SUM(CASE WHEN type = 'debit' THEN amount ELSE 0 END) as total_debit,
-        SUM(CASE WHEN type = 'credit' THEN amount ELSE 0 END) as total_credit
-      FROM ledger_lines
-      WHERE account_id = ?
-    `).get(accountId);
+     const totals = this.db.prepare(`
+       SELECT 
+         SUM(CASE WHEN ll.type = 'debit' THEN ll.amount ELSE 0 END) as total_debit,
+         SUM(CASE WHEN ll.type = 'credit' THEN ll.amount ELSE 0 END) as total_credit
+       FROM ledger_lines ll
+       INNER JOIN master_entries me ON me.id = ll.entry_id AND me.status = 'POSTED'
+       WHERE ll.account_id = ?
+     `).get(accountId);
 
     if (totals) {
       balance += (totals.total_debit || 0) - (totals.total_credit || 0);
