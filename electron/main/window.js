@@ -10,7 +10,7 @@ function createMainWindow() {
     minWidth: 1024,
     minHeight: 640,
     title: "ARB POS & ERP Solution",
-    icon: path.join(__dirname, "../../src/assets/logo.ico"),
+    icon: path.join(__dirname, "../../build/icon.ico"),
     backgroundColor: "#F8FAFC",
     show: false,
     webPreferences: {
