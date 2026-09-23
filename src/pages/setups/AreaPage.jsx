@@ -141,11 +141,10 @@ export function AreaPage() {
       {/* Status Banner */}
       {status && (
         <div
-          className={`p-2.5 rounded-[3px] text-xs font-semibold border flex items-center justify-between gap-2 ${
-            status.type === 'success'
-              ? 'bg-[#DCFCE7] text-[#166534] border-[#86EFAC]'
-              : 'bg-[#FEF2F2] text-[#991B1B] border-[#FCA5A5]'
-          }`}
+          className={`p-2.5 rounded-[3px] text-xs font-semibold border flex items-center justify-between gap-2 ${status.type === 'success'
+            ? 'bg-[#DCFCE7] text-[#166534] border-[#86EFAC]'
+            : 'bg-[#FEF2F2] text-[#991B1B] border-[#FCA5A5]'
+            }`}
         >
           <div className="flex items-center gap-2">
             {status.type === 'success' ? (
@@ -211,9 +210,6 @@ export function AreaPage() {
                 <th className="px-3 py-2 font-bold text-[#475569] text-[11px] uppercase tracking-wider border-r border-[#E2E8F0]">
                   Area Name
                 </th>
-                <th className="px-3 py-2 font-bold text-[#475569] text-[11px] uppercase tracking-wider border-r border-[#E2E8F0] text-center w-28">
-                  Status
-                </th>
                 <th className="px-3 py-2 font-bold text-[#475569] text-[11px] uppercase tracking-wider text-center w-28">
                   Actions
                 </th>
@@ -222,7 +218,7 @@ export function AreaPage() {
             <tbody className="divide-y divide-[#E2E8F0]">
               {loading ? (
                 <tr>
-                  <td colSpan={4} className="px-3 py-8 text-center text-[#94A3B8]">
+                  <td colSpan={3} className="px-3 py-8 text-center text-[#94A3B8]">
                     Loading areas...
                   </td>
                 </tr>
@@ -234,17 +230,6 @@ export function AreaPage() {
                     </td>
                     <td className="px-3 py-2 border-r border-[#E2E8F0] font-bold text-[#1E293B]">
                       {area.name}
-                    </td>
-                    <td className="px-3 py-2 border-r border-[#E2E8F0] text-center">
-                      <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          area.status === 'Active'
-                            ? 'bg-[#DCFCE7] text-[#16A34A]'
-                            : 'bg-[#F1F5F9] text-[#64748B]'
-                        }`}
-                      >
-                        {area.status || 'Active'}
-                      </span>
                     </td>
                     <td className="px-3 py-2 text-center">
                       <div className="flex items-center justify-center gap-1">
@@ -269,7 +254,7 @@ export function AreaPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={4} className="px-3 py-8 text-center text-[#94A3B8]">
+                  <td colSpan={3} className="px-3 py-8 text-center text-[#94A3B8]">
                     No areas found. Click &quot;Add Area&quot; to create one.
                   </td>
                 </tr>

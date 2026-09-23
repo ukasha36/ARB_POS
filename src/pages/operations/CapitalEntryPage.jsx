@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   DollarSign,
   Save,
@@ -8,34 +8,43 @@ import {
   TrendingDown,
   History,
   RefreshCw,
-} from 'lucide-react';
-import { Button } from '../../components/common/Button';
-import { Modal } from '../../components/common/Modal';
-import { TransactionHistoryTable } from '../../components/transactions/TransactionHistoryTable';
-import { api } from '../../services/api';
-import { formatCurrency, safeNum, safeStr, safeId } from '../../utils/formatters';
+} from "lucide-react";
+import { Button } from "../../components/common/Button";
+import { Modal } from "../../components/common/Modal";
+import { TransactionHistoryTable } from "../../components/transactions/TransactionHistoryTable";
+import { api } from "../../services/api";
+import {
+  formatCurrency,
+  safeNum,
+  safeStr,
+  safeId,
+} from "../../utils/formatters";
 
 export function CapitalEntryPage() {
   const [capitalAccounts, setCapitalAccounts] = useState([]);
   const [cashBankAccounts, setCashBankAccounts] = useState([]);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
 
-  const [selectedCapitalAccountId, setSelectedCapitalAccountId] = useState('');
-  const [activeTab, setActiveTab] = useState('investment');
+  const [selectedCapitalAccountId, setSelectedCapitalAccountId] = useState("");
+  const [activeTab, setActiveTab] = useState("investment");
 
   // Investment form
-  const [invDate, setInvDate] = useState(new Date().toISOString().split('T')[0]);
-  const [invAmount, setInvAmount] = useState('');
-  const [invCashBankAccountId, setInvCashBankAccountId] = useState('');
-  const [invReference, setInvReference] = useState('');
-  const [invDescription, setInvDescription] = useState('Capital Investment Contribution');
+  const [invDate, setInvDate] = useState(
+    new Date().toISOString().split("T")[0],
+  );
+  const [invAmount, setInvAmount] = useState("");
+  const [invCashBankAccountId, setInvCashBankAccountId] = useState("");
+  const [invReference, setInvReference] = useState("");
+  const [invDescription, setInvDescription] = useState(
+    "Capital Investment Contribution",
+  );
 
   // Withdrawal form
-  const [wdDate, setWdDate] = useState(new Date().toISOString().split('T')[0]);
-  const [wdAmount, setWdAmount] = useState('');
-  const [wdCashBankAccountId, setWdCashBankAccountId] = useState('');
-  const [wdReference, setWdReference] = useState('');
-  const [wdDescription, setWdDescription] = useState('Capital Withdrawal');
+  const [wdDate, setWdDate] = useState(new Date().toISOString().split("T")[0]);
+  const [wdAmount, setWdAmount] = useState("");
+  const [wdCashBankAccountId, setWdCashBankAccountId] = useState("");
+  const [wdReference, setWdReference] = useState("");
+  const [wdDescription, setWdDescription] = useState("Capital Withdrawal");
 
   // Capital summary and transactions
   const [capitalSummary, setCapitalSummary] = useState(null);
@@ -62,9 +71,9 @@ export function CapitalEntryPage() {
       const res = await api.accounts.list({});
       if (res.success && res.data) {
         const cb = res.data.filter(
-          (a) => a.account_type === 'CASH' || a.account_type === 'BANK',
+          (a) => a.account_type === "CASH" || a.account_type === "BANK",
         );
-        const cap = res.data.filter((a) => a.account_type === 'CAPITAL');
+        const cap = res.data.filter((a) => a.account_type === "CAPITAL");
         setCashBankAccounts(cb);
         setCapitalAccounts(cap);
         if (cb.length) setInvCashBankAccountId(cb[0].id);
@@ -72,7 +81,7 @@ export function CapitalEntryPage() {
         if (cb.length) setWdCashBankAccountId(cb[0].id);
       }
     } catch (err) {
-      console.error('Failed to load accounts for Capital Entry', err);
+      console.error("Failed to load accounts for Capital Entry", err);
     } finally {
       setLoadingAccounts(false);
     }
@@ -88,7 +97,7 @@ export function CapitalEntryPage() {
       if (summaryRes.success) setCapitalSummary(summaryRes.data);
       if (transactionsRes.success) setCapitalTransactions(transactionsRes.data);
     } catch (err) {
-      console.error('Failed to load capital data:', err);
+      console.error("Failed to load capital data:", err);
     } finally {
       setCapitalLoading(false);
     }
@@ -97,16 +106,19 @@ export function CapitalEntryPage() {
   const handlePostInvestment = async (e) => {
     e.preventDefault();
     if (!selectedCapitalAccountId) {
-      setStatus({ type: 'error', text: 'Please select a Capital Account.' });
+      setStatus({ type: "error", text: "Please select a Capital Account." });
       return;
     }
     const numAmount = parseFloat(invAmount);
     if (!numAmount || numAmount <= 0) {
-      setStatus({ type: 'error', text: 'Please enter a valid positive amount.' });
+      setStatus({
+        type: "error",
+        text: "Please enter a valid positive amount.",
+      });
       return;
     }
     if (!invCashBankAccountId) {
-      setStatus({ type: 'error', text: 'Please select a Cash/Bank account.' });
+      setStatus({ type: "error", text: "Please select a Cash/Bank account." });
       return;
     }
 
@@ -115,11 +127,10 @@ export function CapitalEntryPage() {
 
     try {
       const transactionData = {
-        entry_type: 'CAPITAL',
+        entry_type: "CAPITAL",
         date: invDate,
         description: invDescription,
-        reference_no:
-          invReference || `CAP-${Date.now().toString().slice(-4)}`,
+        reference_no: invReference || `CAP-${Date.now().toString().slice(-4)}`,
         debit_lines: [
           {
             account_id: parseInt(invCashBankAccountId, 10),
@@ -127,7 +138,10 @@ export function CapitalEntryPage() {
           },
         ],
         credit_lines: [
-          { account_id: parseInt(selectedCapitalAccountId, 10), amount: numAmount },
+          {
+            account_id: parseInt(selectedCapitalAccountId, 10),
+            amount: numAmount,
+          },
         ],
       };
 
@@ -136,23 +150,23 @@ export function CapitalEntryPage() {
         : await api.transactions.post(transactionData);
       if (res.success) {
         setStatus({
-          type: 'success',
+          type: "success",
           text: editingEntryId
             ? `Capital entry updated! ${formatCurrency(numAmount)} (Ref: ${transactionData.reference_no})`
             : `Capital investment posted! ${formatCurrency(numAmount)} added. (Ref: ${transactionData.reference_no})`,
         });
         setEditingEntryId(null);
-        setInvAmount('');
-        setInvReference('');
+        setInvAmount("");
+        setInvReference("");
         await loadCapitalData(selectedCapitalAccountId);
       } else {
         setStatus({
-          type: 'error',
-          text: res.error || 'Failed to post capital investment',
+          type: "error",
+          text: res.error || "Failed to post capital investment",
         });
       }
     } catch (err) {
-      setStatus({ type: 'error', text: err.message });
+      setStatus({ type: "error", text: err.message });
     } finally {
       setPosting(false);
     }
@@ -161,21 +175,24 @@ export function CapitalEntryPage() {
   const handlePostWithdrawal = async (e) => {
     e.preventDefault();
     if (!selectedCapitalAccountId) {
-      setStatus({ type: 'error', text: 'Please select a Capital Account.' });
+      setStatus({ type: "error", text: "Please select a Capital Account." });
       return;
     }
     const numAmount = parseFloat(wdAmount);
     if (!numAmount || numAmount <= 0) {
-      setStatus({ type: 'error', text: 'Please enter a valid positive amount.' });
+      setStatus({
+        type: "error",
+        text: "Please enter a valid positive amount.",
+      });
       return;
     }
     if (!wdCashBankAccountId) {
-      setStatus({ type: 'error', text: 'Please select a Cash/Bank account.' });
+      setStatus({ type: "error", text: "Please select a Cash/Bank account." });
       return;
     }
     if (capitalSummary && numAmount > capitalSummary.currentCapital) {
       setStatus({
-        type: 'error',
+        type: "error",
         text: `Withdrawal amount exceeds current capital of ${formatCurrency(capitalSummary.currentCapital)}.`,
       });
       return;
@@ -186,13 +203,15 @@ export function CapitalEntryPage() {
 
     try {
       const transactionData = {
-        entry_type: 'CAPITAL_WITHDRAWAL',
+        entry_type: "CAPITAL_WITHDRAWAL",
         date: wdDate,
         description: wdDescription,
-        reference_no:
-          wdReference || `CW-${Date.now().toString().slice(-4)}`,
+        reference_no: wdReference || `CW-${Date.now().toString().slice(-4)}`,
         debit_lines: [
-          { account_id: parseInt(selectedCapitalAccountId, 10), amount: numAmount },
+          {
+            account_id: parseInt(selectedCapitalAccountId, 10),
+            amount: numAmount,
+          },
         ],
         credit_lines: [
           {
@@ -207,23 +226,23 @@ export function CapitalEntryPage() {
         : await api.transactions.post(transactionData);
       if (res.success) {
         setStatus({
-          type: 'success',
+          type: "success",
           text: editingEntryId
             ? `Capital entry updated! ${formatCurrency(numAmount)} withdrawn. (Ref: ${transactionData.reference_no})`
             : `Capital withdrawal posted! ${formatCurrency(numAmount)} withdrawn. (Ref: ${transactionData.reference_no})`,
         });
         setEditingEntryId(null);
-        setWdAmount('');
-        setWdReference('');
+        setWdAmount("");
+        setWdReference("");
         await loadCapitalData(selectedCapitalAccountId);
       } else {
         setStatus({
-          type: 'error',
-          text: res.error || 'Failed to post capital withdrawal',
+          type: "error",
+          text: res.error || "Failed to post capital withdrawal",
         });
       }
     } catch (err) {
-      setStatus({ type: 'error', text: err.message });
+      setStatus({ type: "error", text: err.message });
     } finally {
       setPosting(false);
     }
@@ -246,10 +265,10 @@ export function CapitalEntryPage() {
 
         setEditingEntryId(tx.entry_id);
 
-        if (fullTx.entry_type === 'CAPITAL') {
-          setActiveTab('investment');
+        if (fullTx.entry_type === "CAPITAL") {
+          setActiveTab("investment");
           setInvDate(safeStr(fullTx.date));
-          setInvAmount(amount > 0 ? amount.toString() : '');
+          setInvAmount(amount > 0 ? amount.toString() : "");
           setInvReference(safeStr(fullTx.reference_no));
           setInvDescription(safeStr(fullTx.description));
           if (creditLines.length > 0) {
@@ -258,10 +277,10 @@ export function CapitalEntryPage() {
           if (debitLines.length > 0) {
             setInvCashBankAccountId(safeId(debitLines[0].account_id));
           }
-        } else if (fullTx.entry_type === 'CAPITAL_WITHDRAWAL') {
-          setActiveTab('withdrawal');
+        } else if (fullTx.entry_type === "CAPITAL_WITHDRAWAL") {
+          setActiveTab("withdrawal");
           setWdDate(safeStr(fullTx.date));
-          setWdAmount(amount > 0 ? amount.toString() : '');
+          setWdAmount(amount > 0 ? amount.toString() : "");
           setWdReference(safeStr(fullTx.reference_no));
           setWdDescription(safeStr(fullTx.description));
           if (debitLines.length > 0) {
@@ -273,7 +292,7 @@ export function CapitalEntryPage() {
         }
       }
     } catch (err) {
-      setStatus({ type: 'error', text: err.message });
+      setStatus({ type: "error", text: err.message });
     }
   };
 
@@ -287,13 +306,16 @@ export function CapitalEntryPage() {
     try {
       const res = await api.transactions.void(tx.entry_id);
       if (res.success) {
-        setStatus({ type: 'success', text: res.message });
+        setStatus({ type: "success", text: res.message });
         if (selectedCapitalAccountId) loadCapitalData(selectedCapitalAccountId);
       } else {
-        setStatus({ type: 'error', text: res.error || 'Failed to void transaction' });
+        setStatus({
+          type: "error",
+          text: res.error || "Failed to void transaction",
+        });
       }
     } catch (err) {
-      setStatus({ type: 'error', text: err.message });
+      setStatus({ type: "error", text: err.message });
     }
   };
 
@@ -308,7 +330,8 @@ export function CapitalEntryPage() {
           <div>
             <h3 className="text-xs font-bold text-[#0F172A]">CAPITAL ENTRY</h3>
             <p className="text-[11px] text-[#64748B]">
-              Manage capital investments, withdrawals, and view capital account summary
+              Manage capital investments, withdrawals, and view capital account
+              summary
             </p>
           </div>
         </div>
@@ -318,7 +341,8 @@ export function CapitalEntryPage() {
           icon={RefreshCw}
           onClick={() => {
             loadAccounts();
-            if (selectedCapitalAccountId) loadCapitalData(selectedCapitalAccountId);
+            if (selectedCapitalAccountId)
+              loadCapitalData(selectedCapitalAccountId);
           }}
           disabled={loadingAccounts || capitalLoading}
         >
@@ -334,7 +358,9 @@ export function CapitalEntryPage() {
               Capital Account
             </label>
             {loadingAccounts ? (
-              <div className="text-[11px] text-[#64748B]">Loading accounts...</div>
+              <div className="text-[11px] text-[#64748B]">
+                Loading accounts...
+              </div>
             ) : (
               <select
                 value={selectedCapitalAccountId}
@@ -359,12 +385,19 @@ export function CapitalEntryPage() {
               Cash/Bank Accounts
             </label>
             {loadingAccounts ? (
-              <div className="text-[11px] text-[#64748B]">Loading accounts...</div>
+              <div className="text-[11px] text-[#64748B]">
+                Loading accounts...
+              </div>
             ) : (
               <select
-                value={activeTab === 'investment' ? invCashBankAccountId : wdCashBankAccountId}
+                value={
+                  activeTab === "investment"
+                    ? invCashBankAccountId
+                    : wdCashBankAccountId
+                }
                 onChange={(e) => {
-                  if (activeTab === 'investment') setInvCashBankAccountId(e.target.value);
+                  if (activeTab === "investment")
+                    setInvCashBankAccountId(e.target.value);
                   else setWdCashBankAccountId(e.target.value);
                 }}
                 className="w-full px-2.5 py-1.5 text-xs font-semibold bg-white text-[#0F172A] border border-[#CBD5E1] rounded-[3px] focus:outline-none focus:border-[#2563EB]"
@@ -388,12 +421,12 @@ export function CapitalEntryPage() {
       {status && (
         <div
           className={`p-3 rounded-[3px] text-xs font-semibold border flex items-center gap-2 ${
-            status.type === 'success'
-              ? 'bg-[#DCFCE7] text-[#166534] border-[#86EFAC]'
-              : 'bg-[#FEF2F2] text-[#991B1B] border-[#FCA5A5]'
+            status.type === "success"
+              ? "bg-[#DCFCE7] text-[#166534] border-[#86EFAC]"
+              : "bg-[#FEF2F2] text-[#991B1B] border-[#FCA5A5]"
           }`}
         >
-          {status.type === 'success' ? (
+          {status.type === "success" ? (
             <CheckCircle2 className="w-4 h-4 text-[#16A34A]" />
           ) : (
             <AlertCircle className="w-4 h-4 text-[#DC2626]" />
@@ -409,11 +442,11 @@ export function CapitalEntryPage() {
           <div className="flex gap-1 bg-[#F8FAFC] p-1 rounded-[3px] border border-[#E2E8F0]">
             <button
               type="button"
-              onClick={() => setActiveTab('investment')}
+              onClick={() => setActiveTab("investment")}
               className={`flex-1 py-1.5 text-xs font-bold rounded-[3px] transition-colors flex items-center justify-center gap-1 ${
-                activeTab === 'investment'
-                  ? 'bg-[#2563EB] text-white'
-                  : 'text-[#64748B] hover:bg-[#EFF6FF] hover:text-[#2563EB]'
+                activeTab === "investment"
+                  ? "bg-[#2563EB] text-white"
+                  : "text-[#64748B] hover:bg-[#EFF6FF] hover:text-[#2563EB]"
               }`}
             >
               <TrendingUp className="w-3 h-3" />
@@ -421,11 +454,11 @@ export function CapitalEntryPage() {
             </button>
             <button
               type="button"
-              onClick={() => setActiveTab('withdrawal')}
+              onClick={() => setActiveTab("withdrawal")}
               className={`flex-1 py-1.5 text-xs font-bold rounded-[3px] transition-colors flex items-center justify-center gap-1 ${
-                activeTab === 'withdrawal'
-                  ? 'bg-[#DC2626] text-white'
-                  : 'text-[#64748B] hover:bg-[#FEF2F2] hover:text-[#DC2626]'
+                activeTab === "withdrawal"
+                  ? "bg-[#DC2626] text-white"
+                  : "text-[#64748B] hover:bg-[#FEF2F2] hover:text-[#DC2626]"
               }`}
             >
               <TrendingDown className="w-3 h-3" />
@@ -434,11 +467,16 @@ export function CapitalEntryPage() {
           </div>
 
           {/* Investment Form */}
-          {activeTab === 'investment' && (
-            <form onSubmit={handlePostInvestment} className="bg-white p-4 border border-[#E2E8F0] rounded-[4px] space-y-4">
+          {activeTab === "investment" && (
+            <form
+              onSubmit={handlePostInvestment}
+              className="bg-white p-4 border border-[#E2E8F0] rounded-[4px] space-y-4"
+            >
               <div className="flex items-center gap-2 pb-2 border-b border-[#E2E8F0]">
                 <TrendingUp className="w-4 h-4 text-[#16A34A]" />
-                <h4 className="text-xs font-bold text-[#0F172A]">CAPITAL INVESTMENT</h4>
+                <h4 className="text-xs font-bold text-[#0F172A]">
+                  CAPITAL INVESTMENT
+                </h4>
                 <p className="text-[10px] text-[#64748B] mt-0.5 block">
                   Dr: Cash/Bank, Cr: Capital
                 </p>
@@ -505,18 +543,23 @@ export function CapitalEntryPage() {
                   icon={Save}
                   disabled={posting || !selectedCapitalAccountId}
                 >
-                  {posting ? 'Posting...' : 'Post Investment'}
+                  {posting ? "Saving..." : "Save"}
                 </Button>
               </div>
             </form>
           )}
 
           {/* Withdrawal Form */}
-          {activeTab === 'withdrawal' && (
-            <form onSubmit={handlePostWithdrawal} className="bg-white p-4 border border-[#E2E8F0] rounded-[4px] space-y-4">
+          {activeTab === "withdrawal" && (
+            <form
+              onSubmit={handlePostWithdrawal}
+              className="bg-white p-4 border border-[#E2E8F0] rounded-[4px] space-y-4"
+            >
               <div className="flex items-center gap-2 pb-2 border-b border-[#E2E8F0]">
                 <TrendingDown className="w-4 h-4 text-[#DC2626]" />
-                <h4 className="text-xs font-bold text-[#0F172A]">CAPITAL WITHDRAWAL</h4>
+                <h4 className="text-xs font-bold text-[#0F172A]">
+                  CAPITAL WITHDRAWAL
+                </h4>
                 <p className="text-[10px] text-[#64748B] mt-0.5 block">
                   Dr: Capital, Cr: Cash/Bank
                 </p>
@@ -565,7 +608,9 @@ export function CapitalEntryPage() {
 
               {capitalSummary && (
                 <div className="bg-[#F8FAFC] p-2 rounded border border-[#E2E8F0]">
-                  <div className="text-[10px] text-[#64748B]">Current Capital</div>
+                  <div className="text-[10px] text-[#64748B]">
+                    Current Capital
+                  </div>
                   <div className="text-sm font-bold font-mono text-[#0F172A]">
                     {formatCurrency(capitalSummary.currentCapital)}
                   </div>
@@ -592,7 +637,7 @@ export function CapitalEntryPage() {
                   icon={Save}
                   disabled={posting || !selectedCapitalAccountId}
                 >
-                  {posting ? 'Posting...' : 'Post Withdrawal'}
+                  {posting ? "Saving..." : "Save Withdrawal"}
                 </Button>
               </div>
             </form>
@@ -614,7 +659,8 @@ export function CapitalEntryPage() {
                   </h4>
                   {selectedCapitalAccount && (
                     <p className="text-[11px] text-[#64748B]">
-                      {selectedCapitalAccount.title} [{selectedCapitalAccount.code}]
+                      {selectedCapitalAccount.title} [
+                      {selectedCapitalAccount.code}]
                     </p>
                   )}
                 </div>
@@ -626,7 +672,9 @@ export function CapitalEntryPage() {
                   className="p-1 text-[#64748B] hover:text-[#2563EB] rounded"
                   disabled={capitalLoading}
                 >
-                  <RefreshCw className={`w-3 h-3 ${capitalLoading ? 'animate-spin' : ''}`} />
+                  <RefreshCw
+                    className={`w-3 h-3 ${capitalLoading ? "animate-spin" : ""}`}
+                  />
                 </button>
               )}
             </div>
@@ -676,8 +724,8 @@ export function CapitalEntryPage() {
             ) : (
               <p className="text-center text-[11px] text-[#94A3B8] py-4">
                 {selectedCapitalAccountId
-                  ? 'No capital data available for selected account'
-                  : 'Select a capital account to view summary'}
+                  ? "No capital data available for selected account"
+                  : "Select a capital account to view summary"}
               </p>
             )}
           </div>
@@ -723,7 +771,8 @@ export function CapitalEntryPage() {
         >
           <div className="p-4">
             <p className="text-xs text-[#475569] mb-2">
-              Void {voidConfirm.tx.entry_type} "{voidConfirm.tx.reference_no}"? This reverses all effects and cannot be undone.
+              Void {voidConfirm.tx.entry_type} "{voidConfirm.tx.reference_no}"?
+              This reverses all effects and cannot be undone.
             </p>
             <div className="flex justify-end gap-2">
               <Button
@@ -733,11 +782,7 @@ export function CapitalEntryPage() {
               >
                 Cancel
               </Button>
-              <Button
-                variant="danger"
-                size="sm"
-                onClick={confirmVoid}
-              >
+              <Button variant="danger" size="sm" onClick={confirmVoid}>
                 Void Transaction
               </Button>
             </div>

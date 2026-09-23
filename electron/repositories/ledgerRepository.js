@@ -7,12 +7,19 @@ class LedgerRepository extends BaseRepository {
 
   createMasterEntry(entry, dbConn = null) {
     const conn = dbConn || this.db;
-    const { entry_type, date, description = '', reference_no = '', status = 'POSTED' } = entry;
+    const {
+      entry_type, date, description = '', reference_no = '', status = 'POSTED',
+      party_account_id = null, transaction_amount = 0,
+    } = entry;
     const stmt = conn.prepare(`
-      INSERT INTO master_entries (entry_type, date, description, reference_no, status)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO master_entries (entry_type, date, description, reference_no, status, party_account_id, transaction_amount)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
-    const info = stmt.run(entry_type, date, description, reference_no, status);
+    const info = stmt.run(
+      entry_type, date, description, reference_no, status,
+      party_account_id || null,
+      Number(transaction_amount) || 0,
+    );
     return info.lastInsertRowid;
   }
 
@@ -264,10 +271,12 @@ class LedgerRepository extends BaseRepository {
       transaction_type: il.transaction_type,
     }));
 
-    const total_amount = Math.max(
-      debit_lines.reduce((s, l) => s + l.amount, 0),
-      credit_lines.reduce((s, l) => s + l.amount, 0),
-    );
+    const total_amount = master.transaction_amount
+      ? Number(master.transaction_amount)
+      : Math.max(
+          debit_lines.reduce((s, l) => s + l.amount, 0),
+          credit_lines.reduce((s, l) => s + l.amount, 0),
+        );
 
     return {
       entry_id: master.id,
@@ -276,6 +285,7 @@ class LedgerRepository extends BaseRepository {
       description: master.description,
       reference_no: master.reference_no,
       status: master.status,
+      party_account_id: master.party_account_id || null,
       total_amount: Math.round(total_amount * 100) / 100,
       debit_lines,
       credit_lines,
@@ -322,27 +332,31 @@ class LedgerRepository extends BaseRepository {
         offset = 0,
       } = filters;
 
-      let sql = `
-        SELECT
-          me.id as entry_id,
-          me.entry_type,
-          me.date,
-          me.description,
-          me.reference_no,
-          me.status,
+    let sql = `
+      SELECT
+        me.id as entry_id,
+        me.entry_type,
+        me.date,
+        me.description,
+        me.reference_no,
+        me.status,
+        me.party_account_id,
+        COALESCE(NULLIF(me.transaction_amount, 0),
           ROUND(COALESCE(
-            (SELECT SUM(ll2.amount) FROM ledger_lines ll2 WHERE ll2.entry_id = me.id AND lower(ll2.type) = 'debit'), 0), 2) as total_amount,
-          COALESCE(
-            (SELECT a2.title FROM ledger_lines ll2
-             JOIN accounts a2 ON ll2.account_id = a2.id
-             WHERE ll2.entry_id = me.id AND a2.account_type NOT IN ('CASH','BANK')
-             ORDER BY ll2.id LIMIT 1),
-            (SELECT a2.title FROM ledger_lines ll2
-             JOIN accounts a2 ON ll2.account_id = a2.id
-             WHERE ll2.entry_id = me.id ORDER BY ll2.id LIMIT 1)
-          ) as account_name
-        FROM master_entries me
-        WHERE 1=1
+            (SELECT SUM(ll2.amount) FROM ledger_lines ll2 WHERE ll2.entry_id = me.id AND lower(ll2.type) = 'debit'), 0), 2)
+        ) as total_amount,
+        COALESCE(
+          (SELECT a2.title FROM accounts a2 WHERE a2.id = me.party_account_id),
+          (SELECT a2.title FROM ledger_lines ll2
+           JOIN accounts a2 ON ll2.account_id = a2.id
+           WHERE ll2.entry_id = me.id AND a2.account_type NOT IN ('CASH','BANK')
+           ORDER BY ll2.id LIMIT 1),
+          (SELECT a2.title FROM ledger_lines ll2
+           JOIN accounts a2 ON ll2.account_id = a2.id
+           WHERE ll2.entry_id = me.id ORDER BY ll2.id LIMIT 1)
+        ) as account_name
+      FROM master_entries me
+      WHERE 1=1
       `;
       const params = [];
 
@@ -386,6 +400,7 @@ class LedgerRepository extends BaseRepository {
         description: r.description,
         reference_no: r.reference_no,
         status: r.status,
+        party_account_id: r.party_account_id || null,
         total_amount: Number(r.total_amount) || 0,
         account_name: r.account_name || null,
       }));

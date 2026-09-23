@@ -320,7 +320,7 @@ class ReportRepository extends BaseRepository {
         me.entry_type,
         me.description,
         ll.type as line_type,
-        ll.amount
+        ll.amount as amount
       FROM ledger_lines ll
       JOIN master_entries me ON ll.entry_id = me.id
       WHERE ll.account_id = ? AND me.status = 'POSTED'
@@ -345,14 +345,25 @@ class ReportRepository extends BaseRepository {
     let periodReceipts = 0.00;
 
     const records = rows.map((r) => {
-      const debit = r.line_type === 'debit' ? Number(r.amount) : 0.00;
-      const credit = r.line_type === 'credit' ? Number(r.amount) : 0.00;
+      const amount = Number(r.amount) || 0;
+      let debit = 0.00;
+      let credit = 0.00;
+      let balanceImpact = 0.00;
 
-      if (r.entry_type === 'SALE') periodSales += debit;
-      if (r.entry_type === 'SALES_RETURN') periodReturns += credit;
-      if (r.entry_type === 'RECEIPT') periodReceipts += credit;
+      if (r.line_type === 'debit') {
+        // Receivable increases (credit sale) -> normal Dr balance goes up
+        debit = amount;
+        balanceImpact = amount;
+        if (r.entry_type === 'SALE') periodSales += amount;
+      } else if (r.line_type === 'credit') {
+        // Receivable decreases (receipt / return / HO_INCOMING)
+        credit = amount;
+        balanceImpact = -amount;
+        if (r.entry_type === 'SALES_RETURN') periodReturns += amount;
+        if (r.entry_type === 'RECEIPT' || r.entry_type === 'HO_INCOMING') periodReceipts += amount;
+      }
 
-      runningBalance = Math.round((runningBalance + debit - credit) * 100) / 100;
+      runningBalance = Math.round((runningBalance + balanceImpact) * 100) / 100;
 
       return {
         entry_id: r.entry_id,
@@ -421,7 +432,7 @@ class ReportRepository extends BaseRepository {
         me.entry_type,
         me.description,
         ll.type as line_type,
-        ll.amount
+        ll.amount as amount
       FROM ledger_lines ll
       JOIN master_entries me ON ll.entry_id = me.id
       WHERE ll.account_id = ? AND me.status = 'POSTED'
@@ -446,15 +457,26 @@ class ReportRepository extends BaseRepository {
     let periodPayments = 0.00;
 
     const records = rows.map((r) => {
-      const debit = r.line_type === 'debit' ? Number(r.amount) : 0.00;
-      const credit = r.line_type === 'credit' ? Number(r.amount) : 0.00;
+      const amount = Number(r.amount) || 0;
+      let debit = 0.00;
+      let credit = 0.00;
+      let balanceImpact = 0.00;
 
-      if (r.entry_type === 'PURCHASE') periodPurchases += credit;
-      if (r.entry_type === 'PURCHASE_RETURN') periodReturns += debit;
-      if (r.entry_type === 'PAYMENT') periodPayments += debit;
+      if (r.line_type === 'credit') {
+        // Payable increases (credit purchase) -> normal Cr balance goes up
+        credit = amount;
+        balanceImpact = amount;
+        if (r.entry_type === 'PURCHASE') periodPurchases += amount;
+      } else if (r.line_type === 'debit') {
+        // Payable decreases (return / payment / HO_OUTGOING)
+        debit = amount;
+        balanceImpact = -amount;
+        if (r.entry_type === 'PURCHASE_RETURN') periodReturns += amount;
+        if (r.entry_type === 'PAYMENT' || r.entry_type === 'HO_OUTGOING') periodPayments += amount;
+      }
 
       // Credit increases payable, debit decreases payable
-      runningBalance = Math.round((runningBalance + credit - debit) * 100) / 100;
+      runningBalance = Math.round((runningBalance + balanceImpact) * 100) / 100;
 
       return {
         entry_id: r.entry_id,
@@ -611,9 +633,8 @@ class ReportRepository extends BaseRepository {
         ) as total_qty,
         (
           SELECT a.title
-          FROM ledger_lines ll
-          JOIN accounts a ON ll.account_id = a.id
-          WHERE ll.entry_id = me.id AND a.account_type = 'CUSTOMER'
+          FROM accounts a
+          WHERE a.id = me.party_account_id
           LIMIT 1
         ) as customer_name,
         (
@@ -648,10 +669,7 @@ class ReportRepository extends BaseRepository {
       params.push(dateTo);
     }
     if (customerId) {
-      sql += ` AND EXISTS (
-        SELECT 1 FROM ledger_lines ll
-        WHERE ll.entry_id = me.id AND ll.account_id = ?
-      )`;
+      sql += ' AND me.party_account_id = ?';
       params.push(parseInt(customerId, 10));
     }
 
@@ -714,9 +732,8 @@ class ReportRepository extends BaseRepository {
         ) as total_qty,
         (
           SELECT a.title
-          FROM ledger_lines ll
-          JOIN accounts a ON ll.account_id = a.id
-          WHERE ll.entry_id = me.id AND a.account_type = 'SUPPLIER'
+          FROM accounts a
+          WHERE a.id = me.party_account_id
           LIMIT 1
         ) as supplier_name,
         (
@@ -751,10 +768,7 @@ class ReportRepository extends BaseRepository {
       params.push(dateTo);
     }
     if (supplierId) {
-      sql += ` AND EXISTS (
-        SELECT 1 FROM ledger_lines ll
-        WHERE ll.entry_id = me.id AND ll.account_id = ?
-      )`;
+      sql += ' AND me.party_account_id = ?';
       params.push(parseInt(supplierId, 10));
     }
 
@@ -820,9 +834,8 @@ class ReportRepository extends BaseRepository {
         it.cost_price,
         (
           SELECT a.title 
-          FROM ledger_lines ll 
-          JOIN accounts a ON ll.account_id = a.id 
-          WHERE ll.entry_id = me.id AND a.account_type = ?
+          FROM accounts a 
+          WHERE a.id = me.party_account_id
           LIMIT 1
         ) as party_name
       FROM master_entries me
@@ -830,7 +843,7 @@ class ReportRepository extends BaseRepository {
       JOIN items i ON it.item_id = i.id
       WHERE me.entry_type = ? AND me.status = 'POSTED'
     `;
-    const params = [isSales ? 'CUSTOMER' : 'SUPPLIER', isSales ? 'SALES_RETURN' : 'PURCHASE_RETURN'];
+    const params = [isSales ? 'SALES_RETURN' : 'PURCHASE_RETURN'];
 
     if (dateFrom) {
       sql += ' AND me.date >= ?';

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calculator, Plus, Trash2, Save, Search, CheckCircle2, AlertCircle, Barcode, History } from 'lucide-react';
+import { Calculator, Plus, Trash2, Save, Search, CheckCircle2, AlertCircle, Barcode, History, RefreshCw } from 'lucide-react';
 import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
 import { TransactionHistoryTable } from '../../components/transactions/TransactionHistoryTable';
@@ -53,7 +53,7 @@ export function SalesBillingPage() {
 
         setCustomers(custs);
         setCashBankAccounts(cb);
-        setSalesRevenueAccount(salesAcc || { id: 6, code: '4001', title: 'Sales Revenue Account' });
+        setSalesRevenueAccount(salesAcc || null);
 
         if (custs.length) setCustomerId(custs[0].id);
         if (cb.length) setDepositAccountId(cb[0].id);
@@ -163,13 +163,13 @@ export function SalesBillingPage() {
     // Check Credit Limit (Client-side block for UX)
     const cust = customers.find(c => c.id === parseInt(customerId, 10));
     if (cust && creditBalance > 0 && cust.credit_limit > 0) {
-       // We should ideally check DB balance, but checking limit vs just this invoice is a start
-       // if we assume their existing balance + this credit exceeds it.
-       // Without an async check here, we'll just check if this invoice alone exceeds it
-       if (creditBalance > cust.credit_limit) {
-         setStatus({ type: 'error', text: `Credit sale of ${formatCurrency(creditBalance)} exceeds customer's credit limit of ${formatCurrency(cust.credit_limit)}.` });
-         return;
-       }
+      // We should ideally check DB balance, but checking limit vs just this invoice is a start
+      // if we assume their existing balance + this credit exceeds it.
+      // Without an async check here, we'll just check if this invoice alone exceeds it
+      if (creditBalance > cust.credit_limit) {
+        setStatus({ type: 'error', text: `Credit sale of ${formatCurrency(creditBalance)} exceeds customer's credit limit of ${formatCurrency(cust.credit_limit)}.` });
+        return;
+      }
     }
 
     setPosting(true);
@@ -216,6 +216,7 @@ export function SalesBillingPage() {
         date,
         description: `Sales Counter Invoice #${invoiceNo} ${remarks ? '- ' + remarks : ''}`,
         reference_no: invoiceNo,
+        party_account_id: customerId ? parseInt(customerId, 10) : null,
         debit_lines,
         credit_lines,
         inventory_lines,
@@ -314,6 +315,20 @@ export function SalesBillingPage() {
     setVoidConfirm({ isOpen: true, tx });
   };
 
+  const resetForm = () => {
+    setEditingEntryId(null);
+    setDate(new Date().toISOString().split('T')[0]);
+    setInvoiceNo(`INV-${Date.now().toString().slice(-5)}`);
+    setCustomerId('');
+    setDepositAccountId('');
+    setPaidAmount('0');
+    setBarcodeQuery('');
+    setRemarks('');
+    setLineItems([{ item_id: '', qty: 1, unit_price: 0, discount: 0, total: 0 }]);
+    setStatus({ type: 'success', text: 'Form cleared. Ready for a new sale.' });
+    loadTransactions();
+  };
+
   return (
     <div className="space-y-4 select-none">
       <div className="bg-white p-3 border border-[#E2E8F0] rounded-[4px] flex items-center justify-between">
@@ -327,28 +342,11 @@ export function SalesBillingPage() {
           </div>
         </div>
 
-        {/* Barcode Quick Search */}
-        <form onSubmit={handleBarcodeSearch} className="flex items-center gap-1">
-          <div className="relative">
-            <Barcode className="w-4 h-4 text-[#2563EB] absolute left-2 top-1.5" />
-            <input
-              type="text"
-              value={barcodeQuery}
-              onChange={(e) => setBarcodeQuery(e.target.value)}
-              placeholder="Scan Barcode / Item Code..."
-              className="pl-8 pr-2 py-1 text-xs bg-white text-[#0F172A] border border-[#BFDBFE] rounded-[3px] focus:outline-none focus:border-[#2563EB] w-56 font-mono"
-            />
-          </div>
-          <Button type="submit" variant="secondary" size="sm" icon={Search}>
-            Scan
-          </Button>
-        </form>
       </div>
 
       {status && (
-        <div className={`p-3 rounded-[3px] text-xs font-semibold border flex items-center gap-2 ${
-          status.type === 'success' ? 'bg-[#DCFCE7] text-[#166534] border-[#86EFAC]' : 'bg-[#FEF2F2] text-[#991B1B] border-[#FCA5A5]'
-        }`}>
+        <div className={`p-3 rounded-[3px] text-xs font-semibold border flex items-center gap-2 ${status.type === 'success' ? 'bg-[#DCFCE7] text-[#166534] border-[#86EFAC]' : 'bg-[#FEF2F2] text-[#991B1B] border-[#FCA5A5]'
+          }`}>
           {status.type === 'success' ? <CheckCircle2 className="w-4 h-4 text-[#16A34A]" /> : <AlertCircle className="w-4 h-4 text-[#DC2626]" />}
           <span>{status.text}</span>
         </div>
@@ -525,8 +523,8 @@ export function SalesBillingPage() {
             <div>
               <div className="flex items-center justify-end gap-1 mb-0.5">
                 <span className="text-[10px] uppercase font-bold text-[#16A34A]">Cash Paid</span>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => setPaidAmount(grandTotal.toString())}
                   className="text-[9px] bg-[#DCFCE7] text-[#166534] border border-[#86EFAC] px-1 rounded hover:bg-[#BBF7D0]"
                 >
@@ -549,7 +547,10 @@ export function SalesBillingPage() {
           </div>
         </div>
 
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="outline" size="md" icon={RefreshCw} onClick={resetForm}>
+            Clear
+          </Button>
           <Button type="submit" variant="primary" size="md" icon={Save} disabled={posting}>
             {posting ? 'Processing Sale...' : 'Complete & Post Sales Bill'}
           </Button>

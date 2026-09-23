@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import {
   Receipt,
   Save,
+  RefreshCw,
   CheckCircle2,
   AlertCircle,
   Loader2,
@@ -12,7 +13,13 @@ import { Button } from "../../components/common/Button";
 import { Modal } from "../../components/common/Modal";
 import { TransactionHistoryTable } from "../../components/transactions/TransactionHistoryTable";
 import { api } from "../../services/api";
-import { formatCurrency, entryTypeLabel, safeNum, safeStr, safeId } from "../../utils/formatters";
+import {
+  formatCurrency,
+  entryTypeLabel,
+  safeNum,
+  safeStr,
+  safeId,
+} from "../../utils/formatters";
 
 export function OutgoingTransactionPage() {
   const [cashBankAccounts, setCashBankAccounts] = useState([]);
@@ -115,6 +122,18 @@ export function OutgoingTransactionPage() {
     }
   };
 
+  const handleClearForm = () => {
+    setEditingEntryId(null);
+    setDate(new Date().toISOString().split("T")[0]);
+    setAmount("");
+    setReference("");
+    setDescription("Supplier Payment / Expense Payment Voucher");
+    setStatus(null);
+    // Reset dropdowns to first available account
+    if (cashBankAccounts.length) setPaymentAccountId(cashBankAccounts[0].id);
+    if (targetAccounts.length) setTargetAccountId(targetAccounts[0].id);
+  };
+
   const handlePostOutgoing = async (e) => {
     e.preventDefault();
     const numAmount = parseFloat(amount);
@@ -149,6 +168,7 @@ export function OutgoingTransactionPage() {
         credit_lines: [
           { account_id: parseInt(paymentAccountId, 10), amount: numAmount },
         ],
+        party_account_id: parseInt(targetAccountId, 10),
       };
 
       const res = editingEntryId
@@ -192,7 +212,10 @@ export function OutgoingTransactionPage() {
         loadTransactions();
         if (targetAccountId) loadSupplierLedger(targetAccountId);
       } else {
-        setStatus({ type: "error", text: res.error || "Failed to void transaction" });
+        setStatus({
+          type: "error",
+          text: res.error || "Failed to void transaction",
+        });
       }
     } catch (err) {
       setStatus({ type: "error", text: err.message });
@@ -216,15 +239,22 @@ export function OutgoingTransactionPage() {
         setReference(safeStr(fullTx.reference_no));
         setDescription(safeStr(fullTx.description));
 
-        const supplierDebit = debitLines.find(l => l.account_type === 'SUPPLIER' || l.account_type === 'EXPENSE');
+        const supplierDebit = debitLines.find(
+          (l) => l.account_type === "SUPPLIER" || l.account_type === "EXPENSE",
+        );
         if (supplierDebit) setTargetAccountId(safeId(supplierDebit.account_id));
 
-        const cashCredit = creditLines.find(l => l.account_type === 'CASH' || l.account_type === 'BANK');
+        const cashCredit = creditLines.find(
+          (l) => l.account_type === "CASH" || l.account_type === "BANK",
+        );
         if (cashCredit) setPaymentAccountId(safeId(cashCredit.account_id));
 
         if (cashCredit) setAmount(safeStr(safeNum(cashCredit.amount)));
 
-        setStatus({ type: "success", text: "Transaction loaded for editing. Modify fields and re-post." });
+        setStatus({
+          type: "success",
+          text: "Transaction loaded for editing. Modify fields and re-post.",
+        });
       }
     } catch (err) {
       setStatus({ type: "error", text: err.message });
@@ -268,11 +298,10 @@ export function OutgoingTransactionPage() {
 
       {status && (
         <div
-          className={`p-3 rounded-[3px] text-xs font-semibold border flex items-center gap-2 ${
-            status.type === "success"
-              ? "bg-[#DCFCE7] text-[#166534] border-[#86EFAC]"
-              : "bg-[#FEF2F2] text-[#991B1B] border-[#FCA5A5]"
-          }`}
+          className={`p-3 rounded-[3px] text-xs font-semibold border flex items-center gap-2 ${status.type === "success"
+            ? "bg-[#DCFCE7] text-[#166534] border-[#86EFAC]"
+            : "bg-[#FEF2F2] text-[#991B1B] border-[#FCA5A5]"
+            }`}
         >
           {status.type === "success" ? (
             <CheckCircle2 className="w-4 h-4 text-[#16A34A]" />
@@ -408,7 +437,17 @@ export function OutgoingTransactionPage() {
               />
             </div>
 
-            <div className="pt-2 flex justify-end">
+            <div className="pt-2 flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="md"
+                icon={RefreshCw}
+                onClick={handleClearForm}
+                disabled={posting}
+              >
+                Clear
+              </Button>
               <Button
                 type="submit"
                 variant="primary"
@@ -416,7 +455,7 @@ export function OutgoingTransactionPage() {
                 icon={Save}
                 disabled={posting}
               >
-                {posting ? "Saving..." : "Save Payment (Paise Do)"}
+                {posting ? "Saving..." : "Save "}
               </Button>
             </div>
           </form>
@@ -451,11 +490,10 @@ export function OutgoingTransactionPage() {
                       {outstandingLabel}
                     </span>
                     <span
-                      className={`text-lg font-bold font-mono ${
-                        closingBalance >= 0
-                          ? "text-[#DC2626]"
-                          : "text-[#2563EB]"
-                      }`}
+                      className={`text-lg font-bold font-mono ${closingBalance >= 0
+                        ? "text-[#DC2626]"
+                        : "text-[#2563EB]"
+                        }`}
                     >
                       {formatCurrency(closingBalance)}
                     </span>
@@ -527,64 +565,65 @@ export function OutgoingTransactionPage() {
               </>
             )}
           </div>
-      </div>
-    </div>
-
-    {/* Transaction History */}
-    <div className="bg-white border border-[#E2E8F0] rounded-[4px] p-4">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <History className="w-4 h-4 text-[#64748B]" />
-          <h4 className="text-xs font-bold text-[#0F172A] uppercase tracking-wider">
-            PAYMENT VOUCHERS
-          </h4>
         </div>
-        <button
-          onClick={loadTransactions}
-          className="text-[11px] text-[#64748B] hover:text-[#2563EB] font-medium"
-          title="Refresh"
-        >
-          Refresh
-        </button>
       </div>
+
+      {/* Transaction History */}
+      <div className="bg-white border border-[#E2E8F0] rounded-[4px] p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <History className="w-4 h-4 text-[#64748B]" />
+            <h4 className="text-xs font-bold text-[#0F172A] uppercase tracking-wider">
+              PAYMENT VOUCHERS
+            </h4>
+          </div>
+          <button
+            onClick={loadTransactions}
+            className="text-[11px] text-[#64748B] hover:text-[#2563EB] font-medium"
+            title="Refresh"
+          >
+            Refresh
+          </button>
+        </div>
         <TransactionHistoryTable
           records={outgoingTxns}
           onEdit={handleEditOutgoing}
           onVoid={handleVoidOutgoing}
         />
-    </div>
+      </div>
 
-    {voidConfirm.isOpen && voidConfirm.tx && (
-      <Modal
-        title="Confirm Void"
-        isOpen={voidConfirm.isOpen}
-        onClose={() => setVoidConfirm({ isOpen: false, tx: null })}
-        size="md"
-      >
-        <div className="p-4">
-          <p className="text-xs text-[#475569] mb-2">
-            Void payment #{voidConfirm.tx.reference_no}? This reverses all ledger effects and cannot be undone.
-          </p>
-          <div className="flex justify-end gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setVoidConfirm({ isOpen: false, tx: null })}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="danger"
-              size="sm"
-              icon={Trash2}
-              onClick={confirmVoid}
-            >
-              Void
-            </Button>
+      {voidConfirm.isOpen && voidConfirm.tx && (
+        <Modal
+          title="Confirm Void"
+          isOpen={voidConfirm.isOpen}
+          onClose={() => setVoidConfirm({ isOpen: false, tx: null })}
+          size="md"
+        >
+          <div className="p-4">
+            <p className="text-xs text-[#475569] mb-2">
+              Void payment #{voidConfirm.tx.reference_no}? This reverses all
+              ledger effects and cannot be undone.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setVoidConfirm({ isOpen: false, tx: null })}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                icon={Trash2}
+                onClick={confirmVoid}
+              >
+                Void
+              </Button>
+            </div>
           </div>
-        </div>
-      </Modal>
-    )}
-  </div>
+        </Modal>
+      )}
+    </div>
   );
 }

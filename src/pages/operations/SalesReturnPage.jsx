@@ -1,23 +1,36 @@
-import React, { useState, useEffect } from 'react';
-import { RotateCcw, Save, CheckCircle2, AlertCircle, History, Trash2 } from 'lucide-react';
-import { Button } from '../../components/common/Button';
-import { Modal } from '../../components/common/Modal';
-import { TransactionHistoryTable } from '../../components/transactions/TransactionHistoryTable';
-import { api } from '../../services/api';
-import { formatCurrency, safeNum, safeStr, safeId } from '../../utils/formatters';
+import React, { useState, useEffect } from "react";
+import {
+  RotateCcw,
+  Save,
+  CheckCircle2,
+  AlertCircle,
+  History,
+  Trash2,
+  RefreshCw,
+} from "lucide-react";
+import { Button } from "../../components/common/Button";
+import { Modal } from "../../components/common/Modal";
+import { TransactionHistoryTable } from "../../components/transactions/TransactionHistoryTable";
+import { api } from "../../services/api";
+import {
+  formatCurrency,
+  safeNum,
+  safeStr,
+  safeId,
+} from "../../utils/formatters";
 
 export function SalesReturnPage() {
   const [customers, setCustomers] = useState([]);
   const [items, setItems] = useState([]);
   const [salesAccount, setSalesAccount] = useState(null);
 
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [customerId, setCustomerId] = useState('');
-  const [itemId, setItemId] = useState('');
-  const [qty, setQty] = useState('1');
-  const [returnAmount, setReturnAmount] = useState('');
-  const [reason, setReason] = useState('Customer product exchange / return');
-  const [reference, setReference] = useState('');
+  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [customerId, setCustomerId] = useState("");
+  const [itemId, setItemId] = useState("");
+  const [qty, setQty] = useState("1");
+  const [returnAmount, setReturnAmount] = useState("");
+  const [reason, setReason] = useState("Customer product exchange / return");
+  const [reference, setReference] = useState("");
 
   const [status, setStatus] = useState(null);
   const [posting, setPosting] = useState(false);
@@ -31,10 +44,10 @@ export function SalesReturnPage() {
 
   const loadTransactions = async () => {
     try {
-      const res = await api.transactions.list({ entry_type: 'SALES_RETURN' });
+      const res = await api.transactions.list({ entry_type: "SALES_RETURN" });
       if (res.success) setReturns(res.data);
     } catch (err) {
-      console.error('Failed to load sales returns', err);
+      console.error("Failed to load sales returns", err);
     }
   };
 
@@ -42,14 +55,21 @@ export function SalesReturnPage() {
     try {
       const accRes = await api.accounts.list({});
       if (accRes.success && accRes.data) {
-        const custs = accRes.data.filter((a) => a.account_type === 'CUSTOMER' || a.sale_enabled);
-        const salesAcc = accRes.data.find((a) => a.code === '4001' || a.account_type === 'REVENUE' || a.account_type === 'SALES');
+        const custs = accRes.data.filter(
+          (a) => a.account_type === "CUSTOMER" || a.sale_enabled,
+        );
+        const salesAcc = accRes.data.find(
+          (a) =>
+            a.code === "4001" ||
+            a.account_type === "REVENUE" ||
+            a.account_type === "SALES",
+        );
         setCustomers(custs);
-        setSalesAccount(salesAcc || { id: 6, code: '4001', title: 'Sales Revenue Account' });
+        setSalesAccount(salesAcc || null);
         if (custs.length) setCustomerId(custs[0].id);
       }
 
-      const itemRes = await api.items.list('');
+      const itemRes = await api.items.list("");
       if (itemRes.success && itemRes.data) {
         setItems(itemRes.data);
         if (itemRes.data.length) {
@@ -58,7 +78,7 @@ export function SalesReturnPage() {
         }
       }
     } catch (err) {
-      console.error('Failed to load sales return data', err);
+      console.error("Failed to load sales return data", err);
     }
   };
 
@@ -88,12 +108,26 @@ export function SalesReturnPage() {
     const numQty = parseFloat(qty);
 
     if (!numAmount || numAmount <= 0 || !numQty || numQty <= 0) {
-      setStatus({ type: 'error', text: 'Please enter valid positive quantity and return amount.' });
+      setStatus({
+        type: "error",
+        text: "Please enter valid positive quantity and return amount.",
+      });
       return;
     }
 
     if (!customerId || !itemId) {
-      setStatus({ type: 'error', text: 'Please select Customer and Return Item.' });
+      setStatus({
+        type: "error",
+        text: "Please select Customer and Return Item.",
+      });
+      return;
+    }
+
+    if (!salesAccount) {
+      setStatus({
+        type: "error",
+        text: "Sales Revenue account (4001) not found in the chart of accounts.",
+      });
       return;
     }
 
@@ -103,7 +137,7 @@ export function SalesReturnPage() {
     try {
       // Debit: Sales Revenue Account (reduces revenue), Credit: Customer Account (reduces customer balance)
       const transactionData = {
-        entry_type: 'SALES_RETURN',
+        entry_type: "SALES_RETURN",
         date,
         description: `Sales Return - ${reason}`,
         reference_no: reference || `SRET-${Date.now().toString().slice(-4)}`,
@@ -113,10 +147,11 @@ export function SalesReturnPage() {
         credit_lines: [
           { account_id: parseInt(customerId, 10), amount: numAmount },
         ],
+        party_account_id: customerId ? parseInt(customerId, 10) : null,
         inventory_lines: [
           {
             item_id: parseInt(itemId, 10),
-            transaction_type: 'SALES_RETURN',
+            transaction_type: "SALES_RETURN",
             qty: numQty,
             unit_price: numAmount / numQty,
             total_price: numAmount,
@@ -129,21 +164,24 @@ export function SalesReturnPage() {
         : await api.transactions.post(transactionData);
       if (res.success) {
         setStatus({
-          type: 'success',
+          type: "success",
           text: editingEntryId
             ? `Sales return updated! Amount: ${formatCurrency(numAmount)}`
             : `Sales Return posted! Amount: ${formatCurrency(numAmount)}. Stock restored by ${numQty} units.`,
         });
         setEditingEntryId(null);
-        setQty('1');
-        setReference('');
+        setQty("1");
+        setReference("");
         loadMasterData();
         loadTransactions();
       } else {
-        setStatus({ type: 'error', text: res.error || 'Failed to post sales return' });
+        setStatus({
+          type: "error",
+          text: res.error || "Failed to post sales return",
+        });
       }
     } catch (err) {
-      setStatus({ type: 'error', text: err.message });
+      setStatus({ type: "error", text: err.message });
     } finally {
       setPosting(false);
     }
@@ -164,7 +202,9 @@ export function SalesReturnPage() {
         setReference(safeStr(fullTx.reference_no));
         setReason(safeStr(fullTx.description));
 
-        const customerLine = creditLines.find(l => l.account_type === 'CUSTOMER') || creditLines[0];
+        const customerLine =
+          creditLines.find((l) => l.account_type === "CUSTOMER") ||
+          creditLines[0];
         if (customerLine) setCustomerId(safeId(customerLine.account_id));
 
         if (inventoryLines.length > 0) {
@@ -174,10 +214,13 @@ export function SalesReturnPage() {
           setReturnAmount(safeStr(safeNum(inv.total_price)));
         }
 
-        setStatus({ type: 'success', text: 'Transaction loaded for editing. Modify fields and re-post.' });
+        setStatus({
+          type: "success",
+          text: "Transaction loaded for editing. Modify fields and re-post.",
+        });
       }
     } catch (err) {
-      setStatus({ type: 'error', text: err.message });
+      setStatus({ type: "error", text: err.message });
     }
   };
 
@@ -187,19 +230,35 @@ export function SalesReturnPage() {
     try {
       const res = await api.transactions.void(tx.entry_id);
       if (res.success) {
-        setStatus({ type: 'success', text: res.message });
+        setStatus({ type: "success", text: res.message });
         loadTransactions();
         loadMasterData();
       } else {
-        setStatus({ type: 'error', text: res.error || 'Failed to void transaction' });
+        setStatus({
+          type: "error",
+          text: res.error || "Failed to void transaction",
+        });
       }
     } catch (err) {
-      setStatus({ type: 'error', text: err.message });
+      setStatus({ type: "error", text: err.message });
     }
   };
 
   const handleVoidReturn = (tx) => {
     setVoidConfirm({ isOpen: true, tx });
+  };
+
+  const resetForm = () => {
+    setEditingEntryId(null);
+    setDate(new Date().toISOString().split('T')[0]);
+    setCustomerId('');
+    setItemId('');
+    setQty('1');
+    setReturnAmount('');
+    setReason('Customer product exchange / return');
+    setReference('');
+    setStatus({ type: 'success', text: 'Form cleared. Ready for a new sales return.' });
+    loadTransactions();
   };
 
   return (
@@ -210,25 +269,43 @@ export function SalesReturnPage() {
             <RotateCcw className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-xs font-bold text-[#0F172A]">SALES RETURN / CREDIT NOTE</h3>
-            <p className="text-[11px] text-[#64748B]">Process customer sales returns, adjust customer receivable balance, and restore stock</p>
+            <h3 className="text-xs font-bold text-[#0F172A]">
+              SALES RETURN / CREDIT NOTE
+            </h3>
+            <p className="text-[11px] text-[#64748B]">
+              Process customer sales returns, adjust customer receivable
+              balance, and restore stock
+            </p>
           </div>
         </div>
       </div>
 
       {status && (
-        <div className={`p-3 rounded-[3px] text-xs font-semibold border flex items-center gap-2 ${
-          status.type === 'success' ? 'bg-[#DCFCE7] text-[#166534] border-[#86EFAC]' : 'bg-[#FEF2F2] text-[#991B1B] border-[#FCA5A5]'
-        }`}>
-          {status.type === 'success' ? <CheckCircle2 className="w-4 h-4 text-[#16A34A]" /> : <AlertCircle className="w-4 h-4 text-[#DC2626]" />}
+        <div
+          className={`p-3 rounded-[3px] text-xs font-semibold border flex items-center gap-2 ${
+            status.type === "success"
+              ? "bg-[#DCFCE7] text-[#166534] border-[#86EFAC]"
+              : "bg-[#FEF2F2] text-[#991B1B] border-[#FCA5A5]"
+          }`}
+        >
+          {status.type === "success" ? (
+            <CheckCircle2 className="w-4 h-4 text-[#16A34A]" />
+          ) : (
+            <AlertCircle className="w-4 h-4 text-[#DC2626]" />
+          )}
           <span>{status.text}</span>
         </div>
       )}
 
-      <form onSubmit={handlePostSalesReturn} className="bg-white p-4 border border-[#E2E8F0] rounded-[4px] space-y-4">
+      <form
+        onSubmit={handlePostSalesReturn}
+        className="bg-white p-4 border border-[#E2E8F0] rounded-[4px] space-y-4"
+      >
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-[11px] font-bold text-[#475569] uppercase mb-1">Customer Account</label>
+            <label className="block text-[11px] font-bold text-[#475569] uppercase mb-1">
+              Customer Account
+            </label>
             <select
               value={customerId}
               onChange={(e) => setCustomerId(e.target.value)}
@@ -244,7 +321,9 @@ export function SalesReturnPage() {
           </div>
 
           <div>
-            <label className="block text-[11px] font-bold text-[#475569] uppercase mb-1">Original Invoice Ref</label>
+            <label className="block text-[11px] font-bold text-[#475569] uppercase mb-1">
+              Original Invoice Ref
+            </label>
             <input
               type="text"
               value={reference}
@@ -257,7 +336,9 @@ export function SalesReturnPage() {
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-[11px] font-bold text-[#475569] uppercase mb-1">Returned Item</label>
+            <label className="block text-[11px] font-bold text-[#475569] uppercase mb-1">
+              Returned Item
+            </label>
             <select
               value={itemId}
               onChange={handleItemSelect}
@@ -273,7 +354,9 @@ export function SalesReturnPage() {
           </div>
 
           <div>
-            <label className="block text-[11px] font-bold text-[#475569] uppercase mb-1">Return Quantity</label>
+            <label className="block text-[11px] font-bold text-[#475569] uppercase mb-1">
+              Return Quantity
+            </label>
             <input
               type="number"
               min="1"
@@ -287,7 +370,9 @@ export function SalesReturnPage() {
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-[11px] font-bold text-[#475569] uppercase mb-1">Credit Note Amount (PKR)</label>
+            <label className="block text-[11px] font-bold text-[#475569] uppercase mb-1">
+              Credit Note Amount (PKR)
+            </label>
             <input
               type="number"
               step="0.01"
@@ -299,7 +384,9 @@ export function SalesReturnPage() {
           </div>
 
           <div>
-            <label className="block text-[11px] font-bold text-[#475569] uppercase mb-1">Return Date</label>
+            <label className="block text-[11px] font-bold text-[#475569] uppercase mb-1">
+              Return Date
+            </label>
             <input
               type="date"
               value={date}
@@ -311,7 +398,9 @@ export function SalesReturnPage() {
         </div>
 
         <div>
-          <label className="block text-[11px] font-bold text-[#475569] uppercase mb-1">Reason for Return</label>
+          <label className="block text-[11px] font-bold text-[#475569] uppercase mb-1">
+            Reason for Return
+          </label>
           <input
             type="text"
             value={reason}
@@ -320,9 +409,18 @@ export function SalesReturnPage() {
           />
         </div>
 
-        <div className="pt-2 flex justify-end">
-          <Button type="submit" variant="primary" size="md" icon={Save} disabled={posting}>
-            {posting ? 'Processing Return...' : 'Post Sales Return / Credit Note'}
+        <div className="pt-2 flex justify-end gap-2">
+          <Button type="button" variant="outline" size="md" icon={RefreshCw} onClick={resetForm}>
+            Clear
+          </Button>
+          <Button
+            type="submit"
+            variant="primary"
+            size="md"
+            icon={Save}
+            disabled={posting}
+          >
+            {posting ? "Saving..." : "Save"}
           </Button>
         </div>
       </form>
@@ -360,7 +458,8 @@ export function SalesReturnPage() {
         >
           <div className="p-4">
             <p className="text-xs text-[#475569] mb-2">
-              Void sales return #{voidConfirm.tx.reference_no}? This reverses all ledger and inventory effects and cannot be undone.
+              Void sales return #{voidConfirm.tx.reference_no}? This reverses
+              all ledger and inventory effects and cannot be undone.
             </p>
             <div className="flex justify-end gap-2">
               <Button

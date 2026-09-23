@@ -25,6 +25,11 @@ function validateLedgerLines(lines, type) {
   }
 }
 
+function accountExists(db, accountId) {
+  if (accountId === null || accountId === undefined || accountId === '' || accountId === 0) return false;
+  return !!db.prepare('SELECT 1 FROM accounts WHERE id = ?').get(accountId);
+}
+
 function ensureSystemAccount(db, code, title, accountType) {
   const existing = db.prepare('SELECT id FROM accounts WHERE code = ?').get(code);
   if (existing) {
@@ -78,6 +83,7 @@ class AccountingService {
       debit_lines = [],
       credit_lines = [],
       inventory_lines = [],
+      party_account_id = null,
       status = 'POSTED',
     } = params;
 
@@ -103,6 +109,25 @@ class AccountingService {
     }
 
     const db = getDb();
+
+    // Validate that every referenced account actually exists. This catches
+    // invalid/hardcoded account ids up-front and yields a clear error instead of
+    // an opaque foreign-key constraint violation.
+    const involvedAccountIds = [];
+    for (const l of debit_lines) if (l.account_id) involvedAccountIds.push(l.account_id);
+    for (const l of credit_lines) if (l.account_id) involvedAccountIds.push(l.account_id);
+    for (const accId of [...new Set(involvedAccountIds)]) {
+      if (!accountExists(db, accId)) {
+        throw new Error(`Ledger line references non-existent account ID ${accId}. Transaction aborted to keep foreign keys valid.`);
+      }
+    }
+    if (party_account_id && !accountExists(db, party_account_id)) {
+      throw new Error(`Party account ID ${party_account_id} does not exist in accounts.`);
+    }
+
+    // Authoritative transaction total = balanced debit/credit of the business lines
+    // (rounded). COGS/inventory balancing lines are added later and must NOT inflate it.
+    const transaction_amount = roundedDebit;
 
 // Generate unique sequential reference if missing or client-side placeholder
     if (!reference_no || reference_no.startsWith('INV-') || reference_no === 'AUTO') {
@@ -138,6 +163,8 @@ class AccountingService {
         description,
         reference_no,
         status: status || 'POSTED',
+        party_account_id: party_account_id || null,
+        transaction_amount,
       }, db);
 
       // Insert Debit Ledger Lines
@@ -277,21 +304,27 @@ class AccountingService {
       totalReturnCogs = Math.round(totalReturnCogs * 100) / 100;
 
       if (totalSaleCogs > 0 || totalReturnCogs > 0) {
-        const invAccount = db.prepare("SELECT id FROM accounts WHERE code = '5001'").get();
-        const cogsAccount = db.prepare("SELECT id FROM accounts WHERE code = '5003'").get();
-        
+        // Look up COGS accounts — do NOT create them if missing.
+        const invAccount = db.prepare("SELECT id FROM accounts WHERE code = '5001' AND status = 'Active'").get();
+        const cogsAccount = db.prepare("SELECT id FROM accounts WHERE code = '5003' AND status = 'Active'").get();
+
         if (!invAccount || !cogsAccount) {
-          throw new Error("Cannot post COGS entries. System accounts 5001 (Inventory) or 5003 (COGS) are missing.");
+          const missing = [!invAccount ? '5001 (Purchases Account)' : null, !cogsAccount ? '5003 (Cost of Goods Sold)' : null]
+            .filter(Boolean).join(' and ');
+          throw new Error(
+            `Cannot post transaction: account ${missing} not found in Chart of Accounts. ` +
+            `Please create the missing account(s) in Setups → Chart of Accounts before posting this transaction.`
+          );
         }
-        
+
         if (totalSaleCogs > 0) {
-          // SALE: Debit COGS, Credit INVENTORY
+          // SALE: Debit COGS, Credit Purchases/Inventory
           ledgerRepository.insertLedgerLine({ entry_id: entryId, account_id: cogsAccount.id, type: 'debit', amount: totalSaleCogs }, db);
           ledgerRepository.insertLedgerLine({ entry_id: entryId, account_id: invAccount.id, type: 'credit', amount: totalSaleCogs }, db);
         }
-        
+
         if (totalReturnCogs > 0) {
-          // SALES RETURN: Debit INVENTORY, Credit COGS
+          // SALES RETURN: Debit Purchases/Inventory, Credit COGS
           ledgerRepository.insertLedgerLine({ entry_id: entryId, account_id: invAccount.id, type: 'debit', amount: totalReturnCogs }, db);
           ledgerRepository.insertLedgerLine({ entry_id: entryId, account_id: cogsAccount.id, type: 'credit', amount: totalReturnCogs }, db);
         }
@@ -511,7 +544,7 @@ class AccountingService {
   }
 
   // Internal: post transaction using an existing db connection (used by editTransaction)
-  postTransactionWithDb(params, db) {
+   postTransactionWithDb(params, db) {
     let {
       entry_type,
       date = new Date().toISOString().split('T')[0],
@@ -520,6 +553,7 @@ class AccountingService {
       debit_lines = [],
       credit_lines = [],
       inventory_lines = [],
+      party_account_id = null,
       status = 'POSTED',
     } = params;
 
@@ -538,6 +572,22 @@ class AccountingService {
         `Unbalanced double-entry transaction! Total Debits (Rs. ${roundedDebit.toFixed(2)}) does not equal Total Credits (Rs. ${roundedCredit.toFixed(2)}).`
       );
     }
+
+    // Validate referenced accounts exist (prevents foreign-key violations).
+    const involvedAccountIds = [];
+    for (const l of debit_lines) if (l.account_id) involvedAccountIds.push(l.account_id);
+    for (const l of credit_lines) if (l.account_id) involvedAccountIds.push(l.account_id);
+    for (const accId of [...new Set(involvedAccountIds)]) {
+      if (!accountExists(db, accId)) {
+        throw new Error(`Ledger line references non-existent account ID ${accId}. Transaction aborted to keep foreign keys valid.`);
+      }
+    }
+    if (party_account_id && !accountExists(db, party_account_id)) {
+      throw new Error(`Party account ID ${party_account_id} does not exist in accounts.`);
+    }
+
+    // Authoritative transaction total (COGS/inventory balancing lines must not inflate it).
+    const transaction_amount = roundedDebit;
 
     // Generate reference if needed
     if (!reference_no || reference_no.startsWith('INV-') || reference_no === 'AUTO') {
@@ -558,6 +608,8 @@ class AccountingService {
       description,
       reference_no,
       status: status || 'POSTED',
+      party_account_id: party_account_id || null,
+      transaction_amount,
     }, db);
 
     for (const dLine of debit_lines) {
@@ -671,16 +723,27 @@ class AccountingService {
     totalReturnCogs = Math.round(totalReturnCogs * 100) / 100;
 
     if (totalSaleCogs > 0 || totalReturnCogs > 0) {
-      const invAccount = db.prepare("SELECT id FROM accounts WHERE code = '5001'").get();
-      const cogsAccount = db.prepare("SELECT id FROM accounts WHERE code = '5003'").get();
+      // Look up COGS accounts — do NOT create them if missing.
+      const invAccount = db.prepare("SELECT id FROM accounts WHERE code = '5001' AND status = 'Active'").get();
+      const cogsAccount = db.prepare("SELECT id FROM accounts WHERE code = '5003' AND status = 'Active'").get();
+
       if (!invAccount || !cogsAccount) {
-        throw new Error("Cannot post COGS entries. System accounts 5001 (Inventory) or 5003 (COGS) are missing.");
+        const missing = [!invAccount ? '5001 (Purchases Account)' : null, !cogsAccount ? '5003 (Cost of Goods Sold)' : null]
+          .filter(Boolean).join(' and ');
+        throw new Error(
+          `Cannot post transaction: account ${missing} not found in Chart of Accounts. ` +
+          `Please create the missing account(s) in Setups → Chart of Accounts before posting this transaction.`
+        );
       }
+
       if (totalSaleCogs > 0) {
+        // SALE: Debit COGS, Credit Purchases/Inventory
         ledgerRepository.insertLedgerLine({ entry_id: entryId, account_id: cogsAccount.id, type: 'debit', amount: totalSaleCogs }, db);
         ledgerRepository.insertLedgerLine({ entry_id: entryId, account_id: invAccount.id, type: 'credit', amount: totalSaleCogs }, db);
       }
+
       if (totalReturnCogs > 0) {
+        // SALES RETURN: Debit Purchases/Inventory, Credit COGS
         ledgerRepository.insertLedgerLine({ entry_id: entryId, account_id: invAccount.id, type: 'debit', amount: totalReturnCogs }, db);
         ledgerRepository.insertLedgerLine({ entry_id: entryId, account_id: cogsAccount.id, type: 'credit', amount: totalReturnCogs }, db);
       }

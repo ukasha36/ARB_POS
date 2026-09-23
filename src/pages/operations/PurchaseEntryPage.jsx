@@ -1,10 +1,24 @@
-import React, { useState, useEffect } from 'react';
-import { ShoppingCart, Plus, Trash2, Save, CheckCircle2, AlertCircle, History } from 'lucide-react';
-import { Button } from '../../components/common/Button';
-import { Modal } from '../../components/common/Modal';
-import { TransactionHistoryTable } from '../../components/transactions/TransactionHistoryTable';
-import { api } from '../../services/api';
-import { formatCurrency, safeNum, safeStr, safeId } from '../../utils/formatters';
+import React, { useState, useEffect } from "react";
+import {
+  ShoppingCart,
+  Plus,
+  Trash2,
+  Save,
+  CheckCircle2,
+  AlertCircle,
+  History,
+  RefreshCw,
+} from "lucide-react";
+import { Button } from "../../components/common/Button";
+import { Modal } from "../../components/common/Modal";
+import { TransactionHistoryTable } from "../../components/transactions/TransactionHistoryTable";
+import { api } from "../../services/api";
+import {
+  formatCurrency,
+  safeNum,
+  safeStr,
+  safeId,
+} from "../../utils/formatters";
 
 export function PurchaseEntryPage() {
   const [suppliers, setSuppliers] = useState([]);
@@ -12,15 +26,17 @@ export function PurchaseEntryPage() {
   const [purchasesAccount, setPurchasesAccount] = useState(null);
   const [availableItems, setAvailableItems] = useState([]);
 
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [invoiceNo, setInvoiceNo] = useState(`PUR-${Date.now().toString().slice(-5)}`);
-  const [supplierId, setSupplierId] = useState('');
-  const [paymentAccountId, setPaymentAccountId] = useState('');
-  const [paidAmount, setPaidAmount] = useState('0');
-  const [remarks, setRemarks] = useState('');
+  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [invoiceNo, setInvoiceNo] = useState(
+    `PUR-${Date.now().toString().slice(-5)}`,
+  );
+  const [supplierId, setSupplierId] = useState("");
+  const [paymentAccountId, setPaymentAccountId] = useState("");
+  const [paidAmount, setPaidAmount] = useState("0");
+  const [remarks, setRemarks] = useState("");
 
   const [lineItems, setLineItems] = useState([
-    { item_id: '', qty: 1, unit_price: 0, total: 0 }
+    { item_id: "", qty: 1, unit_price: 0, total: 0 },
   ]);
 
   const [status, setStatus] = useState(null);
@@ -35,10 +51,10 @@ export function PurchaseEntryPage() {
 
   const loadTransactions = async () => {
     try {
-      const res = await api.transactions.list({ entry_type: 'PURCHASE' });
+      const res = await api.transactions.list({ entry_type: "PURCHASE" });
       if (res.success) setPurchases(res.data);
     } catch (err) {
-      console.error('Failed to load purchases', err);
+      console.error("Failed to load purchases", err);
     }
   };
 
@@ -46,32 +62,40 @@ export function PurchaseEntryPage() {
     try {
       const accRes = await api.accounts.list({});
       if (accRes.success && accRes.data) {
-        const supps = accRes.data.filter((a) => a.account_type === 'SUPPLIER' || a.purchase_enabled);
-        const cb = accRes.data.filter((a) => a.account_type === 'CASH' || a.account_type === 'BANK');
-        const purchAcc = accRes.data.find((a) => a.code === '5001' || a.account_type === 'PURCHASES');
+        const supps = accRes.data.filter(
+          (a) => a.account_type === "SUPPLIER" || a.purchase_enabled,
+        );
+        const cb = accRes.data.filter(
+          (a) => a.account_type === "CASH" || a.account_type === "BANK",
+        );
+        const purchAcc = accRes.data.find(
+          (a) => a.code === "5001" || a.account_type === "PURCHASES",
+        );
 
         setSuppliers(supps);
         setCashBankAccounts(cb);
-        setPurchasesAccount(purchAcc || { id: 7, code: '5001', title: 'Purchase Account' });
+        setPurchasesAccount(purchAcc || null);
 
         if (supps.length) setSupplierId(supps[0].id);
         if (cb.length) setPaymentAccountId(cb[0].id);
       }
 
-      const itemRes = await api.items.list('');
+      const itemRes = await api.items.list("");
       if (itemRes.success && itemRes.data) {
         setAvailableItems(itemRes.data);
         if (itemRes.data.length) {
-          setLineItems([{
-            item_id: itemRes.data[0].id,
-            qty: 1,
-            unit_price: itemRes.data[0].purchase_price || 0,
-            total: itemRes.data[0].purchase_price || 0,
-          }]);
+          setLineItems([
+            {
+              item_id: itemRes.data[0].id,
+              qty: 1,
+              unit_price: itemRes.data[0].purchase_price || 0,
+              total: itemRes.data[0].purchase_price || 0,
+            },
+          ]);
         }
       }
     } catch (err) {
-      console.error('Failed to load purchase master data', err);
+      console.error("Failed to load purchase master data", err);
     }
   };
 
@@ -79,8 +103,10 @@ export function PurchaseEntryPage() {
     const updated = [...lineItems];
     const row = { ...updated[index], [field]: value };
 
-    if (field === 'item_id') {
-      const selectedItem = availableItems.find((i) => i.id === parseInt(value, 10));
+    if (field === "item_id") {
+      const selectedItem = availableItems.find(
+        (i) => i.id === parseInt(value, 10),
+      );
       if (selectedItem) {
         row.unit_price = selectedItem.purchase_price || 0;
       }
@@ -95,10 +121,15 @@ export function PurchaseEntryPage() {
   };
 
   const addLineItem = () => {
-    const firstItem = availableItems[0] || { id: '', purchase_price: 0 };
+    const firstItem = availableItems[0] || { id: "", purchase_price: 0 };
     setLineItems([
       ...lineItems,
-      { item_id: firstItem.id, qty: 1, unit_price: firstItem.purchase_price || 0, total: firstItem.purchase_price || 0 }
+      {
+        item_id: firstItem.id,
+        qty: 1,
+        unit_price: firstItem.purchase_price || 0,
+        total: firstItem.purchase_price || 0,
+      },
     ]);
   };
 
@@ -107,20 +138,32 @@ export function PurchaseEntryPage() {
     setLineItems(lineItems.filter((_, i) => i !== index));
   };
 
-  const grandTotal = Math.round(lineItems.reduce((sum, item) => sum + (item.total || 0), 0) * 100) / 100;
-  const numPaid = Math.min(grandTotal, Math.max(0, parseFloat(paidAmount) || 0));
+  const grandTotal =
+    Math.round(
+      lineItems.reduce((sum, item) => sum + (item.total || 0), 0) * 100,
+    ) / 100;
+  const numPaid = Math.min(
+    grandTotal,
+    Math.max(0, parseFloat(paidAmount) || 0),
+  );
   const creditAmount = Math.round((grandTotal - numPaid) * 100) / 100;
 
   const handlePostPurchase = async (e) => {
     e.preventDefault();
 
     if (!supplierId || !paymentAccountId) {
-      setStatus({ type: 'error', text: 'Please select Supplier and Payment Account.' });
+      setStatus({
+        type: "error",
+        text: "Please select Supplier and Payment Account.",
+      });
       return;
     }
 
     if (grandTotal <= 0) {
-      setStatus({ type: 'error', text: 'Invoice total must be greater than zero.' });
+      setStatus({
+        type: "error",
+        text: "Invoice total must be greater than zero.",
+      });
       return;
     }
 
@@ -130,29 +173,36 @@ export function PurchaseEntryPage() {
     try {
       const credit_lines = [];
       if (numPaid > 0) {
-        credit_lines.push({ account_id: parseInt(paymentAccountId, 10), amount: numPaid });
+        credit_lines.push({
+          account_id: parseInt(paymentAccountId, 10),
+          amount: numPaid,
+        });
       }
       if (creditAmount > 0) {
-        credit_lines.push({ account_id: parseInt(supplierId, 10), amount: creditAmount });
+        credit_lines.push({
+          account_id: parseInt(supplierId, 10),
+          amount: creditAmount,
+        });
       }
 
       const debit_lines = [
-        { account_id: parseInt(purchasesAccount.id, 10), amount: grandTotal }
+        { account_id: parseInt(purchasesAccount.id, 10), amount: grandTotal },
       ];
 
       const inventory_lines = lineItems.map((li) => ({
         item_id: parseInt(li.item_id, 10),
-        transaction_type: 'PURCHASE',
+        transaction_type: "PURCHASE",
         qty: parseFloat(li.qty),
         unit_price: parseFloat(li.unit_price),
         total_price: parseFloat(li.total),
       }));
 
       const transactionData = {
-        entry_type: 'PURCHASE',
+        entry_type: "PURCHASE",
         date,
-        description: `Purchase Invoice #${invoiceNo} ${remarks ? '- ' + remarks : ''}`,
+        description: `Purchase Invoice #${invoiceNo} ${remarks ? "- " + remarks : ""}`,
         reference_no: invoiceNo,
+        party_account_id: supplierId ? parseInt(supplierId, 10) : null,
         debit_lines,
         credit_lines,
         inventory_lines,
@@ -163,19 +213,22 @@ export function PurchaseEntryPage() {
         : await api.transactions.post(transactionData);
       if (res.success) {
         setStatus({
-          type: 'success',
+          type: "success",
           text: `Purchase Invoice #${invoiceNo} posted! Total: ${formatCurrency(grandTotal)} (Paid: ${formatCurrency(numPaid)}, Credit: ${formatCurrency(creditAmount)}). Stock quantities updated.`,
         });
         setInvoiceNo(`PUR-${Date.now().toString().slice(-5)}`);
-        setPaidAmount('0');
-        setRemarks('');
+        setPaidAmount("0");
+        setRemarks("");
         loadMasterData();
         loadTransactions();
       } else {
-        setStatus({ type: 'error', text: res.error || 'Failed to post purchase entry' });
+        setStatus({
+          type: "error",
+          text: res.error || "Failed to post purchase entry",
+        });
       }
     } catch (err) {
-      setStatus({ type: 'error', text: err.message });
+      setStatus({ type: "error", text: err.message });
     } finally {
       setPosting(false);
     }
@@ -198,20 +251,30 @@ export function PurchaseEntryPage() {
         setRemarks(safeStr(fullTx.description));
 
         if (debitLines.length > 0) {
-          const purchasesLine = debitLines.find(l => l.account_type === 'PURCHASES') || debitLines[0];
-          if (purchasesLine) setPurchasesAccount({ id: purchasesLine.account_id, account_type: purchasesLine.account_type });
+          const purchasesLine =
+            debitLines.find((l) => l.account_type === "PURCHASES") ||
+            debitLines[0];
+          if (purchasesLine)
+            setPurchasesAccount({
+              id: purchasesLine.account_id,
+              account_type: purchasesLine.account_type,
+            });
         }
 
         if (creditLines.length > 0) {
-          const paymentLine = creditLines.find(l => l.account_type === 'CASH' || l.account_type === 'BANK');
+          const paymentLine = creditLines.find(
+            (l) => l.account_type === "CASH" || l.account_type === "BANK",
+          );
           if (paymentLine) setPaymentAccountId(safeId(paymentLine.account_id));
 
-          const supplierLine = creditLines.find(l => l.account_type === 'SUPPLIER');
+          const supplierLine = creditLines.find(
+            (l) => l.account_type === "SUPPLIER",
+          );
           if (supplierLine) setSupplierId(safeId(supplierLine.account_id));
         }
 
         if (inventoryLines.length > 0) {
-          const newLineItems = inventoryLines.map(il => ({
+          const newLineItems = inventoryLines.map((il) => ({
             item_id: safeId(il.item_id),
             qty: safeStr(safeNum(il.qty, 1)),
             unit_price: safeStr(safeNum(il.unit_price, 0)),
@@ -220,13 +283,18 @@ export function PurchaseEntryPage() {
           setLineItems(newLineItems);
         }
 
-        const cashPayment = creditLines.find(l => l.account_type === 'CASH' || l.account_type === 'BANK');
+        const cashPayment = creditLines.find(
+          (l) => l.account_type === "CASH" || l.account_type === "BANK",
+        );
         if (cashPayment) setPaidAmount(safeStr(safeNum(cashPayment.amount)));
 
-        setStatus({ type: 'success', text: 'Transaction loaded for editing. Modify fields and re-post.' });
+        setStatus({
+          type: "success",
+          text: "Transaction loaded for editing. Modify fields and re-post.",
+        });
       }
     } catch (err) {
-      setStatus({ type: 'error', text: err.message });
+      setStatus({ type: "error", text: err.message });
     }
   };
 
@@ -236,19 +304,39 @@ export function PurchaseEntryPage() {
     try {
       const res = await api.transactions.void(tx.entry_id);
       if (res.success) {
-        setStatus({ type: 'success', text: res.message });
+        setStatus({ type: "success", text: res.message });
         loadTransactions();
         loadMasterData();
       } else {
-        setStatus({ type: 'error', text: res.error || 'Failed to void transaction' });
+        setStatus({
+          type: "error",
+          text: res.error || "Failed to void transaction",
+        });
       }
     } catch (err) {
-      setStatus({ type: 'error', text: err.message });
+      setStatus({ type: "error", text: err.message });
     }
   };
 
   const handleVoidPurchase = (tx) => {
     setVoidConfirm({ isOpen: true, tx });
+  };
+
+  const handleClearForm = () => {
+    setEditingEntryId(null);
+    setDate(new Date().toISOString().split("T")[0]);
+    setInvoiceNo(`PUR-${Date.now().toString().slice(-5)}`);
+    setSupplierId(suppliers[0]?.id || "");
+    setPaymentAccountId(cashBankAccounts[0]?.id || "");
+    setPaidAmount("0");
+    setRemarks("");
+    setStatus(null);
+    const firstItem = availableItems[0];
+    setLineItems([
+      firstItem
+        ? { item_id: firstItem.id, qty: 1, unit_price: firstItem.purchase_price || 0, total: firstItem.purchase_price || 0 }
+        : { item_id: "", qty: 1, unit_price: 0, total: 0 },
+    ]);
   };
 
   return (
@@ -259,19 +347,29 @@ export function PurchaseEntryPage() {
             <ShoppingCart className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-xs font-bold text-[#0F172A]">PURCHASE ENTRY (PKR)</h3>
+            <h3 className="text-xs font-bold text-[#0F172A]">
+              PURCHASE ENTRY (PKR)
+            </h3>
             <p className="text-[11px] text-[#64748B]">
-              Record supplier purchases in PKR, update stock quantities, and calculate payable balance
+              Record supplier purchases in PKR, update stock quantities, and
+              calculate payable balance
             </p>
           </div>
         </div>
       </div>
 
       {status && (
-        <div className={`p-3 rounded-[3px] text-xs font-semibold border flex items-center gap-2 ${
-          status.type === 'success' ? 'bg-[#DCFCE7] text-[#166534] border-[#86EFAC]' : 'bg-[#FEF2F2] text-[#991B1B] border-[#FCA5A5]'
-        }`}>
-          {status.type === 'success' ? <CheckCircle2 className="w-4 h-4 text-[#16A34A]" /> : <AlertCircle className="w-4 h-4 text-[#DC2626]" />}
+        <div
+          className={`p-3 rounded-[3px] text-xs font-semibold border flex items-center gap-2 ${status.type === "success"
+            ? "bg-[#DCFCE7] text-[#166534] border-[#86EFAC]"
+            : "bg-[#FEF2F2] text-[#991B1B] border-[#FCA5A5]"
+            }`}
+        >
+          {status.type === "success" ? (
+            <CheckCircle2 className="w-4 h-4 text-[#16A34A]" />
+          ) : (
+            <AlertCircle className="w-4 h-4 text-[#DC2626]" />
+          )}
           <span>{status.text}</span>
         </div>
       )}
@@ -280,7 +378,9 @@ export function PurchaseEntryPage() {
         {/* Header Form Card */}
         <div className="bg-white p-3 border border-[#E2E8F0] rounded-[4px] grid grid-cols-12 gap-3">
           <div className="col-span-3">
-            <label className="block text-[11px] font-bold text-[#475569] uppercase mb-1">Supplier / Firm</label>
+            <label className="block text-[11px] font-bold text-[#475569] uppercase mb-1">
+              Supplier / Firm
+            </label>
             <select
               value={supplierId}
               onChange={(e) => setSupplierId(e.target.value)}
@@ -296,7 +396,9 @@ export function PurchaseEntryPage() {
           </div>
 
           <div className="col-span-3">
-            <label className="block text-[11px] font-bold text-[#475569] uppercase mb-1">Invoice #</label>
+            <label className="block text-[11px] font-bold text-[#475569] uppercase mb-1">
+              Invoice #
+            </label>
             <input
               type="text"
               value={invoiceNo}
@@ -307,7 +409,9 @@ export function PurchaseEntryPage() {
           </div>
 
           <div className="col-span-3">
-            <label className="block text-[11px] font-bold text-[#475569] uppercase mb-1">Date</label>
+            <label className="block text-[11px] font-bold text-[#475569] uppercase mb-1">
+              Date
+            </label>
             <input
               type="date"
               value={date}
@@ -318,7 +422,9 @@ export function PurchaseEntryPage() {
           </div>
 
           <div className="col-span-3">
-            <label className="block text-[11px] font-bold text-[#475569] uppercase mb-1">Payment Method Account</label>
+            <label className="block text-[11px] font-bold text-[#475569] uppercase mb-1">
+              Payment Method Account
+            </label>
             <select
               value={paymentAccountId}
               onChange={(e) => setPaymentAccountId(e.target.value)}
@@ -336,8 +442,16 @@ export function PurchaseEntryPage() {
         {/* Multi-line Items Grid */}
         <div className="bg-white border border-[#E2E8F0] rounded-[4px] overflow-hidden">
           <div className="bg-[#EFF6FF] px-3 py-1.5 border-b border-[#BFDBFE] flex items-center justify-between">
-            <span className="font-bold text-[#1E40AF] text-xs uppercase tracking-wider">Purchase Items Line Items</span>
-            <Button type="button" variant="secondary" size="sm" icon={Plus} onClick={addLineItem}>
+            <span className="font-bold text-[#1E40AF] text-xs uppercase tracking-wider">
+              Purchase Items Line Items
+            </span>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              icon={Plus}
+              onClick={addLineItem}
+            >
               Add Item Line
             </Button>
           </div>
@@ -346,21 +460,31 @@ export function PurchaseEntryPage() {
             <thead>
               <tr className="bg-[#F1F5F9] border-b border-[#E2E8F0] text-[11px] font-bold text-[#475569] uppercase">
                 <th className="p-2 border-r border-[#E2E8F0] w-12">#</th>
-                <th className="p-2 border-r border-[#E2E8F0]">Inventory Item</th>
+                <th className="p-2 border-r border-[#E2E8F0]">
+                  Inventory Item
+                </th>
                 <th className="p-2 border-r border-[#E2E8F0] w-28">Quantity</th>
-                <th className="p-2 border-r border-[#E2E8F0] w-32">Purchase Price (PKR)</th>
-                <th className="p-2 border-r border-[#E2E8F0] w-36">Total (PKR)</th>
+                <th className="p-2 border-r border-[#E2E8F0] w-32">
+                  Purchase Price (PKR)
+                </th>
+                <th className="p-2 border-r border-[#E2E8F0] w-36">
+                  Total (PKR)
+                </th>
                 <th className="p-2 w-12 text-center">Action</th>
               </tr>
             </thead>
             <tbody>
               {lineItems.map((item, idx) => (
                 <tr key={idx} className="border-b border-[#E2E8F0]">
-                  <td className="p-2 font-mono text-xs text-[#64748B] border-r border-[#E2E8F0]">{idx + 1}</td>
+                  <td className="p-2 font-mono text-xs text-[#64748B] border-r border-[#E2E8F0]">
+                    {idx + 1}
+                  </td>
                   <td className="p-1 border-r border-[#E2E8F0]">
                     <select
                       value={item.item_id}
-                      onChange={(e) => handleLineItemChange(idx, 'item_id', e.target.value)}
+                      onChange={(e) =>
+                        handleLineItemChange(idx, "item_id", e.target.value)
+                      }
                       className="w-full px-2 py-1 text-xs bg-white border border-[#CBD5E1] rounded-[3px]"
                     >
                       {availableItems.map((ai) => (
@@ -375,7 +499,9 @@ export function PurchaseEntryPage() {
                       type="number"
                       min="1"
                       value={item.qty}
-                      onChange={(e) => handleLineItemChange(idx, 'qty', e.target.value)}
+                      onChange={(e) =>
+                        handleLineItemChange(idx, "qty", e.target.value)
+                      }
                       className="w-full px-2 py-1 text-xs font-mono font-bold bg-white border border-[#CBD5E1] rounded-[3px]"
                     />
                   </td>
@@ -384,7 +510,9 @@ export function PurchaseEntryPage() {
                       type="number"
                       step="0.01"
                       value={item.unit_price}
-                      onChange={(e) => handleLineItemChange(idx, 'unit_price', e.target.value)}
+                      onChange={(e) =>
+                        handleLineItemChange(idx, "unit_price", e.target.value)
+                      }
                       className="w-full px-2 py-1 text-xs font-mono bg-white border border-[#CBD5E1] rounded-[3px]"
                     />
                   </td>
@@ -410,7 +538,9 @@ export function PurchaseEntryPage() {
         {/* Footer Payment Summary */}
         <div className="bg-white p-3 border border-[#E2E8F0] rounded-[4px] grid grid-cols-12 gap-3 items-center">
           <div className="col-span-5">
-            <label className="block text-[10px] font-semibold text-[#64748B]">Remarks</label>
+            <label className="block text-[10px] font-semibold text-[#64748B]">
+              Remarks
+            </label>
             <input
               type="text"
               value={remarks}
@@ -422,12 +552,18 @@ export function PurchaseEntryPage() {
 
           <div className="col-span-7 bg-[#F8FAFC] p-2 border border-[#E2E8F0] rounded-[3px] grid grid-cols-3 gap-2 text-right">
             <div>
-              <span className="block text-[10px] uppercase font-bold text-[#64748B]">Grand Total</span>
-              <span className="font-mono text-sm font-bold text-[#2563EB]">{formatCurrency(grandTotal)}</span>
+              <span className="block text-[10px] uppercase font-bold text-[#64748B]">
+                Grand Total
+              </span>
+              <span className="font-mono text-sm font-bold text-[#2563EB]">
+                {formatCurrency(grandTotal)}
+              </span>
             </div>
 
             <div>
-              <span className="block text-[10px] uppercase font-bold text-[#475569]">Paid Amount (Rs.)</span>
+              <span className="block text-[10px] uppercase font-bold text-[#475569]">
+                Paid Amount (Rs.)
+              </span>
               <input
                 type="number"
                 step="0.01"
@@ -438,15 +574,35 @@ export function PurchaseEntryPage() {
             </div>
 
             <div>
-              <span className="block text-[10px] uppercase font-bold text-[#DC2626]">Credit Payable</span>
-              <span className="font-mono text-sm font-bold text-[#DC2626]">{formatCurrency(creditAmount)}</span>
+              <span className="block text-[10px] uppercase font-bold text-[#DC2626]">
+                Credit Payable
+              </span>
+              <span className="font-mono text-sm font-bold text-[#DC2626]">
+                {formatCurrency(creditAmount)}
+              </span>
             </div>
           </div>
         </div>
 
-        <div className="flex justify-end">
-          <Button type="submit" variant="primary" size="md" icon={Save} disabled={posting}>
-            {posting ? 'Posting Purchase...' : 'Post Purchase Invoice'}
+        <div className="flex justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="md"
+            icon={RefreshCw}
+            onClick={handleClearForm}
+            disabled={posting}
+          >
+            Clear / New
+          </Button>
+          <Button
+            type="submit"
+            variant="primary"
+            size="md"
+            icon={Save}
+            disabled={posting}
+          >
+            {posting ? "Posting Purchase..." : "Post Purchase Invoice"}
           </Button>
         </div>
       </form>
@@ -484,7 +640,8 @@ export function PurchaseEntryPage() {
         >
           <div className="p-4">
             <p className="text-xs text-[#475569] mb-2">
-              Void purchase invoice #{voidConfirm.tx.reference_no}? This reverses all ledger and inventory effects and cannot be undone.
+              Void purchase invoice #{voidConfirm.tx.reference_no}? This
+              reverses all ledger and inventory effects and cannot be undone.
             </p>
             <div className="flex justify-end gap-2">
               <Button

@@ -214,11 +214,10 @@ export function SupplierPage() {
       {/* Status Banner */}
       {status && (
         <div
-          className={`p-2.5 rounded-[3px] text-xs font-semibold border flex items-center justify-between gap-2 ${
-            status.type === 'success'
+          className={`p-2.5 rounded-[3px] text-xs font-semibold border flex items-center justify-between gap-2 ${status.type === 'success'
               ? 'bg-[#DCFCE7] text-[#166534] border-[#86EFAC]'
               : 'bg-[#FEF2F2] text-[#991B1B] border-[#FCA5A5]'
-          }`}
+            }`}
         >
           <div className="flex items-center gap-2">
             {status.type === 'success' ? (
@@ -334,11 +333,10 @@ export function SupplierPage() {
                     </td>
                     <td className="px-3 py-2 border-r border-[#E2E8F0] text-center">
                       <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          s.status === 'Active'
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${s.status === 'Active'
                             ? 'bg-[#DCFCE7] text-[#16A34A]'
                             : 'bg-[#F1F5F9] text-[#64748B]'
-                        }`}
+                          }`}
                       >
                         {s.status || 'Active'}
                       </span>

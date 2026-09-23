@@ -259,6 +259,20 @@ function runMigrations() {
       "TEXT NOT NULL DEFAULT 'POSTED'",
     );
 
+    // Phase 3: Persist the concerned party + authoritative transaction total on the
+    // master entry so listings/ledgers never have to infer them from ledger lines
+    // (which is unreliable once COGS/inventory auto-lines exist).
+    addColumnIfNotExists(
+      "master_entries",
+      "party_account_id",
+      "INTEGER",
+    );
+    addColumnIfNotExists(
+      "master_entries",
+      "transaction_amount",
+      "REAL NOT NULL DEFAULT 0.00",
+    );
+
     addColumnIfNotExists(
       "inventory_transactions",
       "cost_price",
@@ -290,6 +304,50 @@ function runMigrations() {
     ).run();
     db.prepare(
       `UPDATE master_entries SET status = 'POSTED' WHERE status IS NULL OR status = ''`,
+    ).run();
+
+    // Backfill party_account_id: the CUSTOMER for sales/returns, SUPPLIER for purchases/returns,
+    // taken from the party's own ledger line. This preserves existing ledger balances while
+    // making the concerned-party relationship queryable for old data.
+    db.prepare(
+      `
+      UPDATE master_entries
+      SET party_account_id = (
+        SELECT ll.account_id FROM ledger_lines ll
+        JOIN accounts a ON a.id = ll.account_id
+        WHERE ll.entry_id = master_entries.id
+          AND (
+            (master_entries.entry_type IN ('SALE','SALES_RETURN') AND a.account_type = 'CUSTOMER')
+            OR (master_entries.entry_type IN ('PURCHASE','PURCHASE_RETURN') AND a.account_type = 'SUPPLIER')
+          )
+        LIMIT 1
+      )
+      WHERE party_account_id IS NULL
+        AND entry_type IN ('SALE','SALES_RETURN','PURCHASE','PURCHASE_RETURN')
+      `,
+    ).run();
+
+    // Backfill transaction_amount: the actual transaction total (revenue credit for
+    // sales, revenue debit for returns, purchases debit/credit for purchases/returns).
+    // Excludes COGS/inventory auto-lines which would otherwise inflate the amount.
+    db.prepare(
+      `
+      UPDATE master_entries
+      SET transaction_amount = COALESCE((
+        SELECT SUM(ll.amount)
+        FROM ledger_lines ll
+        JOIN accounts a ON a.id = ll.account_id
+        WHERE ll.entry_id = master_entries.id
+          AND (
+            (master_entries.entry_type IN ('SALE','CAPITAL') AND ll.type = 'credit' AND a.account_type = 'REVENUE')
+            OR (master_entries.entry_type IN ('CAPITAL_WITHDRAWAL') AND ll.type = 'debit' AND a.account_type = 'REVENUE')
+            OR (master_entries.entry_type = 'PURCHASE' AND ll.type = 'debit' AND a.account_type = 'PURCHASES')
+            OR (master_entries.entry_type = 'SALES_RETURN' AND ll.type = 'debit' AND a.account_type = 'REVENUE')
+            OR (master_entries.entry_type = 'PURCHASE_RETURN' AND ll.type = 'credit' AND a.account_type = 'PURCHASES')
+          )
+      ), 0)
+      WHERE transaction_amount IS NULL OR transaction_amount = 0
+      `,
     ).run();
     db.prepare(
       `UPDATE inventory_transactions SET cost_price = unit_price WHERE (cost_price IS NULL OR cost_price = 0.00) AND transaction_type IN ('PURCHASE', 'PURCHASE_RETURN')`,
@@ -336,85 +394,19 @@ function runMigrations() {
         VALUES (?, ?, ?, ?, ?, 0.00, ?, 'Active', ?)
       `);
 
-      // Cash & Bank
-      insertAccount.run("1001", "Cash in Hand", "CASH", 1, 1, "Dr", "CASH");
-      insertAccount.run("1002", "Bank Account", "BANK", 1, 1, "Dr", "BANK");
+       // Cash + Bank seeded here; Revenue(4001), Purchases(5001), COGS(5003) are
+       // ensured separately below. Clients create Capital, Customers, Suppliers, etc.
+       insertAccount.run("1001", "Cash in Hand", "CASH", 1, 1, "Dr", "CASH");
+       insertAccount.run("1002", "Bank Account", "BANK", 1, 1, "Dr", "BANK");
 
-      // Generic control accounts (optional; balance 0 — client adds real parties)
-      insertAccount.run(
-        "1101",
-        "General Customer Receivable",
-        "CUSTOMER",
-        0,
-        1,
-        "Dr",
-        "CUST_GEN",
-      );
-      insertAccount.run(
-        "2001",
-        "General Supplier Payable",
-        "SUPPLIER",
-        1,
-        0,
-        "Cr",
-        "SUPP_GEN",
-      );
+       console.log(
+         "[Database Schema] Seeded Cash in Hand + Bank Account only (no other accounts).",
+       );
+     }
 
-      // Equity / Revenue / Inventory / Expense / COGS
-      insertAccount.run(
-        "3001",
-        "Owner Capital Account",
-        "CAPITAL",
-        0,
-        0,
-        "Cr",
-        "CAPITAL",
-      );
-      insertAccount.run(
-        "4001",
-        "Sales Revenue Account",
-        "REVENUE",
-        0,
-        1,
-        "Cr",
-        "SALES_REV",
-      );
-      insertAccount.run(
-        "5001",
-        "Purchase / Inventory Account",
-        "PURCHASES",
-        1,
-        0,
-        "Dr",
-        "PURCH_ACC",
-      );
-      insertAccount.run(
-        "5002",
-        "General Expenses",
-        "EXPENSE",
-        0,
-        0,
-        "Dr",
-        "EXPENSE",
-      );
-      insertAccount.run(
-        "5003",
-        "Cost of Goods Sold (COGS)",
-        "EXPENSE",
-        0,
-        0,
-        "Dr",
-        "COGS",
-      );
-
-      console.log(
-        "[Database Schema] Seeded minimal system Chart of Accounts (no demo parties).",
-      );
-    }
-
-    // ------------------------------------------------------------------
-    // 13. NO sample inventory items
-    // ------------------------------------------------------------------
+     // ------------------------------------------------------------------
+     // 13. NO sample inventory items
+     // ------------------------------------------------------------------
 
     // System settings
     db.prepare(

@@ -81,6 +81,7 @@ export function ItemManagementPage() {
       min_stock: '5',
       opening_stock_qty: '0',
       opening_cost_price: '0',
+      stock_qty: '0',
       status: 'Active',
     });
     setIsModalOpen(true);
@@ -99,6 +100,7 @@ export function ItemManagementPage() {
       min_stock: item.min_stock ? String(item.min_stock) : '5',
       opening_stock_qty: item.opening_stock_qty ? String(item.opening_stock_qty) : '0',
       opening_cost_price: item.opening_cost_price ? String(item.opening_cost_price) : '0',
+      stock_qty: item.stock_qty !== undefined ? String(item.stock_qty) : '0',
       status: item.status || 'Active',
     });
     setIsModalOpen(true);
@@ -181,11 +183,10 @@ export function ItemManagementPage() {
 
       {status && (
         <div
-          className={`p-2.5 rounded-[3px] text-xs font-semibold border flex items-center justify-between gap-2 ${
-            status.type === 'success'
-              ? 'bg-[#DCFCE7] text-[#166534] border-[#86EFAC]'
-              : 'bg-[#FEF2F2] text-[#991B1B] border-[#FCA5A5]'
-          }`}
+          className={`p-2.5 rounded-[3px] text-xs font-semibold border flex items-center justify-between gap-2 ${status.type === 'success'
+            ? 'bg-[#DCFCE7] text-[#166534] border-[#86EFAC]'
+            : 'bg-[#FEF2F2] text-[#991B1B] border-[#FCA5A5]'
+            }`}
         >
           <div className="flex items-center gap-2">
             {status.type === 'success' ? (
@@ -306,11 +307,10 @@ export function ItemManagementPage() {
                     </td>
                     <td className="px-3 py-2 border-r border-[#E2E8F0] text-center">
                       <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          item.status === 'Active'
-                            ? 'bg-[#DCFCE7] text-[#16A34A]'
-                            : 'bg-[#F1F5F9] text-[#64748B]'
-                        }`}
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${item.status === 'Active'
+                          ? 'bg-[#DCFCE7] text-[#16A34A]'
+                          : 'bg-[#F1F5F9] text-[#64748B]'
+                          }`}
                       >
                         {item.status || 'Active'}
                       </span>
@@ -470,7 +470,7 @@ export function ItemManagementPage() {
                 <div className="grid grid-cols-2 gap-3 bg-[#F8FAFC] p-2.5 rounded border border-[#E2E8F0]">
                   <div>
                     <label className="block text-[10px] font-bold text-[#64748B] uppercase mb-1">
-                      Opening Stock Qty
+                      Stock quantity
                     </label>
                     <input
                       type="number"
@@ -481,48 +481,39 @@ export function ItemManagementPage() {
                       className="w-full px-2 py-1 text-xs bg-white border border-[#CBD5E1] rounded-[3px]"
                     />
                   </div>
+                </div>
+              )}
+
+              {editingItem && (
+                <div className="bg-[#F8FAFC] p-2.5 rounded border border-[#E2E8F0]">
                   <div>
                     <label className="block text-[10px] font-bold text-[#64748B] uppercase mb-1">
-                      Opening Cost Price (PKR)
+                      Stock quantity
                     </label>
                     <input
                       type="number"
-                      step="0.01"
+                      step="1"
                       min="0"
-                      value={formData.opening_cost_price}
-                      onChange={(e) => setFormData({ ...formData, opening_cost_price: e.target.value })}
+                      value={formData.stock_qty}
+                      onChange={(e) => setFormData({ ...formData, stock_qty: e.target.value })}
                       className="w-full px-2 py-1 text-xs bg-white border border-[#CBD5E1] rounded-[3px]"
                     />
                   </div>
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-[#475569] uppercase mb-1">
-                    Min Stock Threshold
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={formData.min_stock}
-                    onChange={(e) => setFormData({ ...formData, min_stock: e.target.value })}
-                    className="w-full px-2.5 py-1.5 text-xs bg-white border border-[#CBD5E1] rounded-[3px] focus:border-[#2563EB] focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-[#475569] uppercase mb-1">
-                    Status
-                  </label>
-                  <select
-                    value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                    className="w-full px-2.5 py-1.5 text-xs bg-white border border-[#CBD5E1] rounded-[3px] focus:border-[#2563EB] focus:outline-none"
-                  >
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                  </select>
-                </div>
+              <div>
+                <label className="block text-[11px] font-bold text-[#475569] uppercase mb-1">
+                  Status
+                </label>
+                <select
+                  value={formData.status}
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                  className="w-full px-2.5 py-1.5 text-xs bg-white border border-[#CBD5E1] rounded-[3px] focus:border-[#2563EB] focus:outline-none"
+                >
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                </select>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#E2E8F0]">

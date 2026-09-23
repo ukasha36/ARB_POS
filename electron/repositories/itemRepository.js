@@ -53,6 +53,7 @@ class ItemRepository extends BaseRepository {
       category = 'General',
       unit_price = 0.00,
       purchase_price = 0.00,
+      stock_qty,
       opening_stock_qty = 0.00,
       opening_cost_price = 0.00,
       min_stock = 5.00,
@@ -65,7 +66,7 @@ class ItemRepository extends BaseRepository {
       this.db.prepare(`
         UPDATE items 
         SET code = ?, name = ?, barcode = ?, category = ?, unit_price = ?, 
-            purchase_price = ?, min_stock = ?, status = ?, supplier_id = ?, 
+            purchase_price = ?, stock_qty = ?, min_stock = ?, status = ?, supplier_id = ?, 
             updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
       `).run(
@@ -75,6 +76,7 @@ class ItemRepository extends BaseRepository {
         category,
         Math.round(Number(unit_price) * 100) / 100,
         Math.round(Number(purchase_price) * 100) / 100,
+        Math.round(Number(stock_qty !== undefined ? stock_qty : (opening_stock_qty || 0)) * 100) / 100,
         Number(min_stock) || 0,
         status,
         supplier_id ? parseInt(supplier_id, 10) : null,

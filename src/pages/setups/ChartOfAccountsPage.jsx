@@ -295,11 +295,7 @@ export function ChartOfAccountsPage() {
       if (changedFields.length > 0) {
         try {
           const depRes = await api.accounts.checkDependencies(formData.id);
-          if (
-            depRes.success &&
-            depRes.data &&
-            !depRes.data.canHardDelete
-          ) {
+          if (depRes.success && depRes.data && !depRes.data.canHardDelete) {
             setSensitiveWarningModal({
               isOpen: true,
               changedFields,
@@ -399,11 +395,8 @@ export function ChartOfAccountsPage() {
       {/* 1. Sub-Header Section */}
       <div className="bg-white px-3 py-2 border-b border-[#E2E8F0] flex items-center justify-between">
         <div>
-          <span className="text-[10px] font-bold text-[#2563EB] tracking-wider uppercase">
-            MASTER ENTITY SETUP
-          </span>
           <h2 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
-            CHART OF ACCOUNT SETUP
+            ACCOUNT SETUP
             {formData.id && (
               <span className="px-1.5 py-0.5 bg-[#FEF3C7] text-[#92400E] text-[10px] font-mono rounded border border-[#FDE68A] flex items-center gap-1">
                 <Edit className="w-3 h-3" />
@@ -419,15 +412,6 @@ export function ChartOfAccountsPage() {
         {/* Local Toolbar Actions */}
         <div className="flex items-center gap-1.5">
           <Button
-            variant="danger"
-            size="sm"
-            icon={Trash2}
-            onClick={handleDelete}
-            disabled={!formData.id}
-          >
-            Delete
-          </Button>
-          <Button
             variant="outline"
             size="sm"
             onClick={() => setIsListModalOpen(true)}
@@ -438,22 +422,21 @@ export function ChartOfAccountsPage() {
       </div>
 
       {/* 2. Quick Navigation Bar */}
-      <AccountQuickNav
+      {/* <AccountQuickNav
         onNavigate={handleQuickNav}
         onSearch={handleSearchGo}
         currentCode={formData.code}
-      />
+      /> */}
 
       {/* Status Message Notification Bar */}
       {statusMessage && (
         <div
-          className={`mx-3 px-3 py-1.5 rounded-[3px] text-xs font-semibold flex items-center justify-between border ${
-            statusMessage.type === "success"
-              ? "bg-[#DCFCE7] text-[#166534] border-[#86EFAC]"
-              : statusMessage.type === "error"
-                ? "bg-[#FEF2F2] text-[#991B1B] border-[#FCA5A5]"
-                : "bg-[#EFF6FF] text-[#1E40AF] border-[#BFDBFE]"
-          }`}
+          className={`mx-3 px-3 py-1.5 rounded-[3px] text-xs font-semibold flex items-center justify-between border ${statusMessage.type === "success"
+            ? "bg-[#DCFCE7] text-[#166534] border-[#86EFAC]"
+            : statusMessage.type === "error"
+              ? "bg-[#FEF2F2] text-[#991B1B] border-[#FCA5A5]"
+              : "bg-[#EFF6FF] text-[#1E40AF] border-[#BFDBFE]"
+            }`}
         >
           <div className="flex items-center gap-2">
             {statusMessage.type === "success" ? (
@@ -928,7 +911,7 @@ export function ChartOfAccountsPage() {
             {/* Bottom Save Button */}
             <div className="pt-4 flex items-center justify-end gap-2 border-t border-[#E2E8F0]">
               <Button variant="outline" size="sm" onClick={handleNewRecord}>
-                Reset / Abort
+                Reset
               </Button>
               <Button
                 variant="primary"
@@ -937,7 +920,7 @@ export function ChartOfAccountsPage() {
                 onClick={handleSave}
                 disabled={saving}
               >
-                {saving ? "Saving..." : "Save Account "}
+                {saving ? "Saving..." : "Save"}
               </Button>
             </div>
           </div>
