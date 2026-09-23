@@ -17,13 +17,14 @@ VALUES (1, 'WAC', 2, 5.0);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_setup_areas_name ON setup_areas(name);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_setup_sub_areas_name_area ON setup_sub_areas(area_id, name);
 
--- 3. Add optional tax columns to master_entries and inventory_transactions (INTEGER cents)
-ALTER TABLE master_entries ADD COLUMN IF NOT EXISTS tax_amount INTEGER NOT NULL DEFAULT 0;
-ALTER TABLE inventory_transactions ADD COLUMN IF NOT EXISTS tax_amount INTEGER NOT NULL DEFAULT 0;
+-- 3. tax_amount columns are added safely by addColumnIfNotExists() in schema.js runMigrations.
+-- Removed from here: ADD COLUMN IF NOT EXISTS crashes on SQLite < 3.37.
+-- schema.js already handles both master_entries.tax_amount and inventory_transactions.tax_amount.
+SELECT 3; -- no-op placeholder so db.exec() has valid SQL
 
 -- 3. Supplier integration: No separate table needed – suppliers are accounts with account_type='SUPPLIER'. Ensure supplier code uniqueness (already unique via accounts.code).
 
 -- 4. Additional report helper view (optional) – not required now.
 
--- Record migration execution
-INSERT OR IGNORE INTO _migrations (name) VALUES ('20260920_phase3_setups_and_reports.sql');
+-- NOTE: The migration runner (loadPhase3Migrations in schema.js line 457) will record
+-- this migration in _migrations after successful execution. Do NOT insert here.

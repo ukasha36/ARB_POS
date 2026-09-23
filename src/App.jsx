@@ -1,5 +1,5 @@
-import React from "react";
-import { ConfigProvider } from "antd";
+import React, { Suspense, lazy } from "react";
+import { ConfigProvider, Spin } from "antd";
 import { AppLayout } from "./components/layout/AppLayout";
 import { LoginModal } from "./components/auth/LoginModal";
 import { EditProfileModal } from "./components/auth/EditProfileModal";
@@ -7,38 +7,45 @@ import { WelcomePage } from "./pages/WelcomePage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { PlaceholderPage } from "./pages/PlaceholderPage";
 
-// Phase 2 Operational & Setup Screens
-import { ChartOfAccountsPage } from "./pages/setups/ChartOfAccountsPage";
-import { ItemManagementPage } from "./pages/setups/ItemManagementPage";
-import { CapitalEntryPage } from "./pages/operations/CapitalEntryPage";
-import { PurchaseEntryPage } from "./pages/operations/PurchaseEntryPage";
-import { PurchaseReturnPage } from "./pages/operations/PurchaseReturnPage";
-import { SalesBillingPage } from "./pages/operations/SalesBillingPage";
-import { SalesReturnPage } from "./pages/operations/SalesReturnPage";
-import { IncomingTransactionPage } from "./pages/operations/IncomingTransactionPage";
-import { OutgoingTransactionPage } from "./pages/operations/OutgoingTransactionPage";
+// Lazy load all Setup pages
+const ChartOfAccountsPage = lazy(() => import("./pages/setups/ChartOfAccountsPage").then(m => ({ default: m.ChartOfAccountsPage })));
+const ItemManagementPage = lazy(() => import("./pages/setups/ItemManagementPage").then(m => ({ default: m.ItemManagementPage })));
+const AreaPage = lazy(() => import("./pages/setups/AreaPage").then(m => ({ default: m.AreaPage })));
+const SubAreaPage = lazy(() => import("./pages/setups/SubAreaPage").then(m => ({ default: m.SubAreaPage })));
+const SupplierPage = lazy(() => import("./pages/setups/SupplierPage").then(m => ({ default: m.SupplierPage })));
+const SalesmanPage = lazy(() => import("./pages/setups/SalesmanPage").then(m => ({ default: m.SalesmanPage })));
+const WeightedAverageSettingsPage = lazy(() => import("./pages/setups/WeightedAverageSettingsPage").then(m => ({ default: m.WeightedAverageSettingsPage })));
 
-// Phase 3 Setup Screens
-import { AreaPage } from "./pages/setups/AreaPage";
-import { SubAreaPage } from "./pages/setups/SubAreaPage";
-import { SupplierPage } from "./pages/setups/SupplierPage";
-import { SalesmanPage } from "./pages/setups/SalesmanPage";
-import { WeightedAverageSettingsPage } from "./pages/setups/WeightedAverageSettingsPage";
+// Lazy load all Operational pages
+const CapitalEntryPage = lazy(() => import("./pages/operations/CapitalEntryPage").then(m => ({ default: m.CapitalEntryPage })));
+const PurchaseEntryPage = lazy(() => import("./pages/operations/PurchaseEntryPage").then(m => ({ default: m.PurchaseEntryPage })));
+const PurchaseReturnPage = lazy(() => import("./pages/operations/PurchaseReturnPage").then(m => ({ default: m.PurchaseReturnPage })));
+const SalesBillingPage = lazy(() => import("./pages/operations/SalesBillingPage").then(m => ({ default: m.SalesBillingPage })));
+const SalesReturnPage = lazy(() => import("./pages/operations/SalesReturnPage").then(m => ({ default: m.SalesReturnPage })));
+const IncomingTransactionPage = lazy(() => import("./pages/operations/IncomingTransactionPage").then(m => ({ default: m.IncomingTransactionPage })));
+const OutgoingTransactionPage = lazy(() => import("./pages/operations/OutgoingTransactionPage").then(m => ({ default: m.OutgoingTransactionPage })));
 
-// Phase 3 Report Screens
-import { ProfitReportPage } from "./pages/reports/ProfitReportPage";
-import { PurchaseReportPage } from "./pages/reports/PurchaseReportPage";
-import { PurchaseReturnReportPage } from "./pages/reports/PurchaseReturnReportPage";
-import { SalesReportPage } from "./pages/reports/SalesReportPage";
-import { SalesReturnReportPage } from "./pages/reports/SalesReturnReportPage";
-import { StockAnalyticsPage } from "./pages/reports/StockAnalyticsPage";
-import { GeneralLedgerPage } from "./pages/reports/GeneralLedgerPage";
-import { CustomerLedgerPage } from "./pages/reports/CustomerLedgerPage";
-import { SupplierLedgerPage } from "./pages/reports/SupplierLedgerPage";
-import { AccountStatementPage } from "./pages/reports/AccountStatementPage";
+// Lazy load all Report pages
+const ProfitReportPage = lazy(() => import("./pages/reports/ProfitReportPage").then(m => ({ default: m.ProfitReportPage })));
+const PurchaseReportPage = lazy(() => import("./pages/reports/PurchaseReportPage").then(m => ({ default: m.PurchaseReportPage })));
+const PurchaseReturnReportPage = lazy(() => import("./pages/reports/PurchaseReturnReportPage").then(m => ({ default: m.PurchaseReturnReportPage })));
+const SalesReportPage = lazy(() => import("./pages/reports/SalesReportPage").then(m => ({ default: m.SalesReportPage })));
+const SalesReturnReportPage = lazy(() => import("./pages/reports/SalesReturnReportPage").then(m => ({ default: m.SalesReturnReportPage })));
+const StockAnalyticsPage = lazy(() => import("./pages/reports/StockAnalyticsPage").then(m => ({ default: m.StockAnalyticsPage })));
+const GeneralLedgerPage = lazy(() => import("./pages/reports/GeneralLedgerPage").then(m => ({ default: m.GeneralLedgerPage })));
+const CustomerLedgerPage = lazy(() => import("./pages/reports/CustomerLedgerPage").then(m => ({ default: m.CustomerLedgerPage })));
+const SupplierLedgerPage = lazy(() => import("./pages/reports/SupplierLedgerPage").then(m => ({ default: m.SupplierLedgerPage })));
+const AccountStatementPage = lazy(() => import("./pages/reports/AccountStatementPage").then(m => ({ default: m.AccountStatementPage })));
 
 import { useNavigationStore } from "./store/useNavigationStore";
 import { useAuthStore } from "./store/useAuthStore";
+
+// Loading fallback component
+const PageLoadingFallback = () => (
+  <div className="flex items-center justify-center h-screen">
+    <Spin size="large" tip="Loading..." />
+  </div>
+);
 
 // Ant Design Light Blue Theme customization
 const antdTheme = {
@@ -140,7 +147,11 @@ export default function App() {
       ) : (
         /* Render Application Layout ONLY after successful login */
         <>
-          <AppLayout>{renderActiveModule()}</AppLayout>
+          <AppLayout>
+            <Suspense fallback={<PageLoadingFallback />}>
+              {renderActiveModule()}
+            </Suspense>
+          </AppLayout>
           <EditProfileModal />
         </>
       )}

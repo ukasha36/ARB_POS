@@ -10,7 +10,8 @@
     "build": "vite build",
     "rebuild": "electron-rebuild -f -w better-sqlite3",
     "start": "electron .",
-    "dist": "npm run build && npx electron-builder"
+    "dist": "npm run build && npx electron-builder",
+    "test:migrations": "echo 'IMPORTANT: better-sqlite3 requires Electron Node ABI. Run migrations.test.js via: electron electron/database/migrations.test.js (after npm rebuild)'"
   },
   "dependencies": {
     "@tanstack/react-table": "^8.21.2",

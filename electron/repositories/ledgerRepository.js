@@ -391,8 +391,6 @@ class LedgerRepository extends BaseRepository {
 
       const rows = this.db.prepare(sql).all(...params);
 
-      console.log('[listEntries]', { entry_type, status, count: rows.length });
-
       return rows.map((r) => ({
         entry_id: r.entry_id,
         entry_type: r.entry_type,

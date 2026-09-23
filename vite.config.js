@@ -17,5 +17,17 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom'],
+          'antd-vendor': ['antd'],
+          'icons': ['lucide-react'],
+          'table': ['@tanstack/react-table'],
+          'utils': ['zustand', 'react-hook-form', 'bcryptjs'],
+        },
+      },
+    },
   },
 });

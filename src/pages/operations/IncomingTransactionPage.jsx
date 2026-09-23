@@ -63,10 +63,6 @@ export function IncomingTransactionPage() {
   const [ledgerError, setLedgerError] = useState(null);
 
   useEffect(() => {
-    loadAccounts();
-  }, []);
-
-  useEffect(() => {
     if (sourceAccountId) {
       loadCustomerLedger(sourceAccountId);
     } else {

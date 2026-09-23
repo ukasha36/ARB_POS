@@ -34,10 +34,7 @@ function initConnection(customPath) {
   console.log(`[Database] Initializing SQLite database at: ${dbPath}`);
 
   try {
-    const isDev = app ? !app.isPackaged : (process.env.NODE_ENV === 'development' || !process.env.NODE_ENV);
-    dbInstance = new Database(dbPath, {
-      verbose: isDev ? console.log : null,
-    });
+    dbInstance = new Database(dbPath);
 
     // Configure PRAGMAs for durability and performance
     dbInstance.pragma('journal_mode = WAL');

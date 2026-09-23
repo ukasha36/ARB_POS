@@ -283,6 +283,17 @@ function runMigrations() {
       "total_cost",
       "REAL NOT NULL DEFAULT 0.00",
     );
+    // Phase 3 migration: tax_amount columns (also referenced in 20260920_phase3_setups_and_reports.sql)
+    addColumnIfNotExists(
+      "master_entries",
+      "tax_amount",
+      "INTEGER NOT NULL DEFAULT 0",
+    );
+    addColumnIfNotExists(
+      "inventory_transactions",
+      "tax_amount",
+      "INTEGER NOT NULL DEFAULT 0",
+    );
 
     // Performance Indexes
     db.exec(`
