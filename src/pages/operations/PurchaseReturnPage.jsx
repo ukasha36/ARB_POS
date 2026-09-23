@@ -18,6 +18,10 @@ import {
   safeStr,
   safeId,
 } from "../../utils/formatters";
+import {
+  filterSupplierAccounts,
+  filterPurchasesAccounts,
+} from "../../utils/accountFilters";
 
 export function PurchaseReturnPage() {
   const [suppliers, setSuppliers] = useState([]);
@@ -58,12 +62,8 @@ export function PurchaseReturnPage() {
     try {
       const accRes = await api.accounts.list({});
       if (accRes.success && accRes.data) {
-        const supps = accRes.data.filter(
-          (a) => a.account_type === "SUPPLIER" || a.purchase_enabled,
-        );
-        const purchasesAccounts = accRes.data.filter(
-          (a) => a.status === "Active" && (a.account_type === "PURCHASES" || a.account_type === "INVENTORY"),
-        );
+        const supps = filterSupplierAccounts(accRes.data);
+        const purchasesAccounts = filterPurchasesAccounts(accRes.data);
         setSuppliers(supps);
         setAvailablePurchasesAccounts(purchasesAccounts);
         if (purchasesAccounts.length) setPurchasesAccountId(safeId(purchasesAccounts[0]?.id) || '');
@@ -124,7 +124,7 @@ export function PurchaseReturnPage() {
       return;
     }
 
-    if (!purchasesAccount) {
+    if (!purchasesAccountId) {
       setStatus({
         type: "error",
         text: "Purchases account (5001) not found in the chart of accounts.",
@@ -146,7 +146,7 @@ export function PurchaseReturnPage() {
           { account_id: parseInt(supplierId, 10), amount: numAmount },
         ],
         credit_lines: [
-          { account_id: parseInt(purchasesAccount.id, 10), amount: numAmount },
+          { account_id: parseInt(purchasesAccountId, 10), amount: numAmount },
         ],
         party_account_id: supplierId ? parseInt(supplierId, 10) : null,
         inventory_lines: [

@@ -1,25 +1,43 @@
-import React, { useState, useEffect } from 'react';
-import { Modal } from '../common/Modal';
-import { TableWrapper } from '../common/TableWrapper';
-import { api } from '../../services/api';
-import { formatCurrency } from '../../utils/formatters';
-import { Search, Filter, Edit, Trash2 } from 'lucide-react';
+import React, { useState, useEffect } from "react";
+import { Modal } from "../common/Modal";
+import { TableWrapper } from "../common/TableWrapper";
+import { api } from "../../services/api";
+import { formatCurrency } from "../../utils/formatters";
+import { Search, Filter, Edit, Trash2 } from "lucide-react";
 
-export function AccountListModal({ isOpen, onClose, onSelectAccount, onRequestDelete }) {
+export function AccountListModal({
+  isOpen,
+  onClose,
+  onSelectAccount,
+  onRequestDelete,
+}) {
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [search, setSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState('');
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
 
   const fetchAccounts = async () => {
     setLoading(true);
     try {
       const res = await api.accounts.list({ search, account_type: typeFilter });
       if (res.success) {
-        setAccounts(res.data);
+        const HIDDEN_CODES = new Set([
+          "1101",
+          "2001",
+          "4001",
+          "5001",
+          "5002",
+          "5003",
+        ]);
+        const visible = (res.data || []).filter((acc) => {
+          const code = String(acc.code || "").trim();
+          if (HIDDEN_CODES.has(code)) return false;
+          return true;
+        });
+        setAccounts(visible);
       }
     } catch (err) {
-      console.error('Failed to fetch accounts list', err);
+      console.error("Failed to fetch accounts list", err);
     } finally {
       setLoading(false);
     }
@@ -33,65 +51,97 @@ export function AccountListModal({ isOpen, onClose, onSelectAccount, onRequestDe
 
   const columns = [
     {
-      header: 'Code',
-      accessorKey: 'code',
-      cell: (info) => <span className="font-mono font-bold text-[#2563EB]">{info.getValue()}</span>,
+      header: "Code",
+      accessorKey: "code",
+      cell: (info) => (
+        <span className="font-mono font-bold text-[#2563EB]">
+          {info.getValue()}
+        </span>
+      ),
     },
     {
-      header: 'Title',
-      accessorKey: 'title',
-      cell: (info) => <span className="font-semibold text-[#0F172A]">{info.getValue()}</span>,
+      header: "Title",
+      accessorKey: "title",
+      cell: (info) => (
+        <span className="font-semibold text-[#0F172A]">{info.getValue()}</span>
+      ),
     },
     {
-      header: 'Type',
-      accessorKey: 'account_type',
-      cell: (info) => <span className="text-[11px] font-medium text-[#475569]">{info.getValue()}</span>,
+      header: "Type",
+      accessorKey: "account_type",
+      cell: (info) => (
+        <span className="text-[11px] font-medium text-[#475569]">
+          {info.getValue()}
+        </span>
+      ),
     },
     {
-      header: 'Purch',
-      accessorKey: 'purchase_enabled',
-      cell: (info) => (info.getValue() ? <span className="text-[#16A34A] font-bold">✓</span> : <span className="text-[#94A3B8]">--</span>),
+      header: "Purch",
+      accessorKey: "purchase_enabled",
+      cell: (info) =>
+        info.getValue() ? (
+          <span className="text-[#16A34A] font-bold">✓</span>
+        ) : (
+          <span className="text-[#94A3B8]">--</span>
+        ),
     },
     {
-      header: 'Sale',
-      accessorKey: 'sale_enabled',
-      cell: (info) => (info.getValue() ? <span className="text-[#16A34A] font-bold">✓</span> : <span className="text-[#94A3B8]">--</span>),
+      header: "Sale",
+      accessorKey: "sale_enabled",
+      cell: (info) =>
+        info.getValue() ? (
+          <span className="text-[#16A34A] font-bold">✓</span>
+        ) : (
+          <span className="text-[#94A3B8]">--</span>
+        ),
     },
     {
-      header: 'Opening Bal (PKR)',
-      accessorKey: 'opening_balance',
+      header: "Opening Bal (PKR)",
+      accessorKey: "opening_balance",
       cell: (info) => {
         const val = info.getValue() || 0;
-        const type = info.row.original.opening_balance_type || 'Dr';
-        return <span className="font-mono text-xs">{formatCurrency(val)} ({type})</span>;
+        const type = info.row.original.opening_balance_type || "Dr";
+        return (
+          <span className="font-mono text-xs">
+            {formatCurrency(val)} ({type})
+          </span>
+        );
       },
     },
     {
-      header: 'Credit Limit (PKR)',
-      accessorKey: 'credit_limit',
-      cell: (info) => <span className="font-mono text-xs">{formatCurrency(info.getValue() || 0)}</span>,
+      header: "Credit Limit (PKR)",
+      accessorKey: "credit_limit",
+      cell: (info) => (
+        <span className="font-mono text-xs">
+          {formatCurrency(info.getValue() || 0)}
+        </span>
+      ),
     },
     {
-      header: 'Aging Days',
-      accessorKey: 'aging_days',
+      header: "Aging Days",
+      accessorKey: "aging_days",
     },
     {
-      header: 'Status',
-      accessorKey: 'status',
+      header: "Status",
+      accessorKey: "status",
       cell: (info) => {
         const val = info.getValue();
         return (
-          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${
-            val === 'Active' ? 'bg-[#DCFCE7] text-[#166534] border-[#86EFAC]' : 'bg-[#FEF2F2] text-[#991B1B] border-[#FCA5A5]'
-          }`}>
+          <span
+            className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${
+              val === "Active"
+                ? "bg-[#DCFCE7] text-[#166534] border-[#86EFAC]"
+                : "bg-[#FEF2F2] text-[#991B1B] border-[#FCA5A5]"
+            }`}
+          >
             {val}
           </span>
         );
       },
     },
     {
-      header: 'Actions',
-      accessorKey: 'id',
+      header: "Actions",
+      accessorKey: "id",
       cell: (info) => {
         const record = info.row.original;
         return (
@@ -179,7 +229,11 @@ export function AccountListModal({ isOpen, onClose, onSelectAccount, onRequestDe
           data={accounts}
           columns={columns}
           height="max-h-[400px]"
-          emptyText={loading ? 'Loading accounts directory...' : 'No accounts found matching criteria'}
+          emptyText={
+            loading
+              ? "Loading accounts directory..."
+              : "No accounts found matching criteria"
+          }
           onRowClick={(record) => {
             if (onSelectAccount) {
               onSelectAccount(record);

@@ -188,8 +188,12 @@ function runMigrations() {
       const columns = db.prepare(`PRAGMA table_info(${tableName})`).all();
       const exists = columns.some((col) => col.name === columnName);
       if (!exists) {
+        const safeDef = columnDef.replace(
+          /\s+DEFAULT\s+CURRENT_(TIMESTAMP|TIME|DATE)\b/i,
+          "",
+        );
         db.exec(
-          `ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDef};`,
+          `ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${safeDef};`,
         );
       }
     };
@@ -200,16 +204,8 @@ function runMigrations() {
       "status",
       "TEXT NOT NULL DEFAULT 'Active'",
     );
-    addColumnIfNotExists(
-      "setup_areas",
-      "created_at",
-      "DATETIME DEFAULT CURRENT_TIMESTAMP",
-    );
-    addColumnIfNotExists(
-      "setup_areas",
-      "updated_at",
-      "DATETIME DEFAULT CURRENT_TIMESTAMP",
-    );
+    addColumnIfNotExists("setup_areas", "created_at", "DATETIME");
+    addColumnIfNotExists("setup_areas", "updated_at", "DATETIME");
 
     // Safe Phase 3 column migrations for sub_areas and salesmen
     addColumnIfNotExists(
@@ -217,16 +213,8 @@ function runMigrations() {
       "status",
       "TEXT NOT NULL DEFAULT 'Active'",
     );
-    addColumnIfNotExists(
-      "setup_sub_areas",
-      "created_at",
-      "DATETIME DEFAULT CURRENT_TIMESTAMP",
-    );
-    addColumnIfNotExists(
-      "setup_sub_areas",
-      "updated_at",
-      "DATETIME DEFAULT CURRENT_TIMESTAMP",
-    );
+    addColumnIfNotExists("setup_sub_areas", "created_at", "DATETIME");
+    addColumnIfNotExists("setup_sub_areas", "updated_at", "DATETIME");
     addColumnIfNotExists(
       "setup_salesmen",
       "status",
@@ -262,11 +250,7 @@ function runMigrations() {
     // Phase 3: Persist the concerned party + authoritative transaction total on the
     // master entry so listings/ledgers never have to infer them from ledger lines
     // (which is unreliable once COGS/inventory auto-lines exist).
-    addColumnIfNotExists(
-      "master_entries",
-      "party_account_id",
-      "INTEGER",
-    );
+    addColumnIfNotExists("master_entries", "party_account_id", "INTEGER");
     addColumnIfNotExists(
       "master_entries",
       "transaction_amount",
@@ -294,6 +278,19 @@ function runMigrations() {
       "tax_amount",
       "INTEGER NOT NULL DEFAULT 0",
     );
+
+    db.prepare(
+      `UPDATE setup_areas SET created_at = datetime('now') WHERE created_at IS NULL`,
+    ).run();
+    db.prepare(
+      `UPDATE setup_areas SET updated_at = datetime('now') WHERE updated_at IS NULL`,
+    ).run();
+    db.prepare(
+      `UPDATE setup_sub_areas SET created_at = datetime('now') WHERE created_at IS NULL`,
+    ).run();
+    db.prepare(
+      `UPDATE setup_sub_areas SET updated_at = datetime('now') WHERE updated_at IS NULL`,
+    ).run();
 
     // Performance Indexes
     db.exec(`
@@ -390,34 +387,93 @@ function runMigrations() {
     // ------------------------------------------------------------------
 
     // ------------------------------------------------------------------
-    // 12. Minimal system Chart of Accounts only (zero balances, no demo parties)
+    // 12. System Chart of Accounts (required for posting — always upsert by code)
+    //     Hidden from party dropdowns in UI; must exist in DB.
     // ------------------------------------------------------------------
-    const accountCount = db
-      .prepare("SELECT COUNT(*) as count FROM accounts")
-      .get().count;
+    const insertAccount = db.prepare(`
+      INSERT OR IGNORE INTO accounts (
+        code, title, account_type, purchase_enabled, sale_enabled,
+        opening_balance, opening_balance_type, status, short_name
+      )
+      VALUES (?, ?, ?, ?, ?, 0.00, ?, 'Active', ?)
+    `);
 
-    if (accountCount === 0) {
-      const insertAccount = db.prepare(`
-        INSERT INTO accounts (
-          code, title, account_type, purchase_enabled, sale_enabled,
-          opening_balance, opening_balance_type, status, short_name
-        )
-        VALUES (?, ?, ?, ?, ?, 0.00, ?, 'Active', ?)
-      `);
+    // Cash / Bank
+    insertAccount.run("1001", "Cash in Hand", "CASH", 1, 1, "Dr", "CASH");
+    insertAccount.run("1002", "Bank Account", "BANK", 1, 1, "Dr", "BANK");
 
-       // Cash + Bank seeded here; Revenue(4001), Purchases(5001), COGS(5003) are
-       // ensured separately below. Clients create Capital, Customers, Suppliers, etc.
-       insertAccount.run("1001", "Cash in Hand", "CASH", 1, 1, "Dr", "CASH");
-       insertAccount.run("1002", "Bank Account", "BANK", 1, 1, "Dr", "BANK");
+    // Control + posting accounts (do not delete; UI hides them from party pickers)
+    insertAccount.run(
+      "1101",
+      "General Customer Receivable",
+      "CUSTOMER",
+      0,
+      1,
+      "Dr",
+      "CUST_GEN",
+    );
+    insertAccount.run(
+      "2001",
+      "General Supplier Payable",
+      "SUPPLIER",
+      1,
+      0,
+      "Cr",
+      "SUPP_GEN",
+    );
+    insertAccount.run(
+      "4001",
+      "Sales Revenue Account",
+      "REVENUE",
+      0,
+      1,
+      "Cr",
+      "SALES_REV",
+    );
+    insertAccount.run(
+      "5001",
+      "Purchase / Inventory Account",
+      "PURCHASES",
+      1,
+      0,
+      "Dr",
+      "PURCH_ACC",
+    );
+    insertAccount.run(
+      "5002",
+      "General Expenses",
+      "EXPENSE",
+      0,
+      0,
+      "Dr",
+      "EXPENSE",
+    );
+    insertAccount.run(
+      "5003",
+      "Cost of Goods Sold (COGS)",
+      "COGS",
+      0,
+      0,
+      "Dr",
+      "COGS",
+    );
 
-       console.log(
-         "[Database Schema] Seeded Cash in Hand + Bank Account only (no other accounts).",
-       );
-     }
+    // If a row already existed with same code but empty short_name, backfill names
+    const ensureShort = db.prepare(`
+      UPDATE accounts SET short_name = ? WHERE code = ? AND (short_name IS NULL OR short_name = '')
+    `);
+    ensureShort.run("CASH", "1001");
+    ensureShort.run("BANK", "1002");
+    ensureShort.run("CUST_GEN", "1101");
+    ensureShort.run("SUPP_GEN", "2001");
+    ensureShort.run("SALES_REV", "4001");
+    ensureShort.run("PURCH_ACC", "5001");
+    ensureShort.run("EXPENSE", "5002");
+    ensureShort.run("COGS", "5003");
 
-     // ------------------------------------------------------------------
-     // 13. NO sample inventory items
-     // ------------------------------------------------------------------
+    // ------------------------------------------------------------------
+    // 13. NO sample inventory items
+    // ------------------------------------------------------------------
 
     // System settings
     db.prepare(

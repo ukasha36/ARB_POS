@@ -19,12 +19,19 @@ import {
   safeStr,
   safeId,
 } from "../../utils/formatters";
+import {
+  filterSupplierAccounts,
+  filterCashBankAccounts,
+  filterPurchasesAccounts,
+} from "../../utils/accountFilters";
 
 export function PurchaseEntryPage() {
   const [suppliers, setSuppliers] = useState([]);
   const [cashBankAccounts, setCashBankAccounts] = useState([]);
-  const [purchasesAccountId, setPurchasesAccountId] = useState('');
-  const [availablePurchasesAccounts, setAvailablePurchasesAccounts] = useState([]);
+  const [purchasesAccountId, setPurchasesAccountId] = useState("");
+  const [availablePurchasesAccounts, setAvailablePurchasesAccounts] = useState(
+    [],
+  );
   const [availableItems, setAvailableItems] = useState([]);
 
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
@@ -63,20 +70,15 @@ export function PurchaseEntryPage() {
     try {
       const accRes = await api.accounts.list({});
       if (accRes.success && accRes.data) {
-        const supps = accRes.data.filter(
-          (a) => a.account_type === "SUPPLIER" || a.purchase_enabled,
-        );
-        const cb = accRes.data.filter(
-          (a) => a.account_type === "CASH" || a.account_type === "BANK",
-        );
-        const purchasesAccounts = accRes.data.filter(
-          (a) => a.status === "Active" && (a.account_type === "PURCHASES" || a.account_type === "INVENTORY"),
-        );
+        const supps = filterSupplierAccounts(accRes.data);
+        const cb = filterCashBankAccounts(accRes.data);
+        const purchasesAccounts = filterPurchasesAccounts(accRes.data);
 
         setSuppliers(supps);
         setCashBankAccounts(cb);
         setAvailablePurchasesAccounts(purchasesAccounts);
-        if (purchasesAccounts.length) setPurchasesAccountId(safeId(purchasesAccounts[0]?.id) || '');
+        if (purchasesAccounts.length)
+          setPurchasesAccountId(safeId(purchasesAccounts[0]?.id) || "");
 
         if (supps.length) setSupplierId(supps[0].id);
         if (cb.length) setPaymentAccountId(cb[0].id);
@@ -114,8 +116,8 @@ export function PurchaseEntryPage() {
       }
     }
 
-    const qty = parseFloat(row.qty) || 0;
-    const price = parseFloat(row.unit_price) || 0;
+    const qty = safeNum(row.qty, 0);
+    const price = safeNum(row.unit_price, 0);
     row.total = Math.round(qty * price * 100) / 100;
 
     updated[index] = row;
@@ -341,7 +343,12 @@ export function PurchaseEntryPage() {
     const firstItem = availableItems[0];
     setLineItems([
       firstItem
-        ? { item_id: firstItem.id, qty: 1, unit_price: firstItem.purchase_price || 0, total: firstItem.purchase_price || 0 }
+        ? {
+            item_id: firstItem.id,
+            qty: 1,
+            unit_price: firstItem.purchase_price || 0,
+            total: firstItem.purchase_price || 0,
+          }
         : { item_id: "", qty: 1, unit_price: 0, total: 0 },
     ]);
   };
@@ -367,10 +374,11 @@ export function PurchaseEntryPage() {
 
       {status && (
         <div
-          className={`p-3 rounded-[3px] text-xs font-semibold border flex items-center gap-2 ${status.type === "success"
-            ? "bg-[#DCFCE7] text-[#166534] border-[#86EFAC]"
-            : "bg-[#FEF2F2] text-[#991B1B] border-[#FCA5A5]"
-            }`}
+          className={`p-3 rounded-[3px] text-xs font-semibold border flex items-center gap-2 ${
+            status.type === "success"
+              ? "bg-[#DCFCE7] text-[#166534] border-[#86EFAC]"
+              : "bg-[#FEF2F2] text-[#991B1B] border-[#FCA5A5]"
+          }`}
         >
           {status.type === "success" ? (
             <CheckCircle2 className="w-4 h-4 text-[#16A34A]" />
@@ -386,7 +394,7 @@ export function PurchaseEntryPage() {
         <div className="bg-white p-3 border border-[#E2E8F0] rounded-[4px] grid grid-cols-12 gap-3">
           <div className="col-span-3">
             <label className="block text-[11px] font-bold text-[#475569] uppercase mb-1">
-              Supplier / Firm
+              Supplier
             </label>
             <select
               value={supplierId}
@@ -461,11 +469,17 @@ export function PurchaseEntryPage() {
                 className="w-full px-2.5 py-1.5 text-xs font-semibold bg-white border border-[#CBD5E1] rounded-[3px]"
               >
                 <option value="">[ SELECT PURCHASES ACCOUNT ]</option>
-                {availablePurchasesAccounts.filter(Boolean).map((acc, index) => acc && (
-                  <option key={safeId(acc?.id) || `purch-${index}`} value={safeId(acc?.id)}>
-                    {safeStr(acc?.title, '—')} [{safeStr(acc?.code, '?')}]
-                  </option>
-                ))}
+                {availablePurchasesAccounts.filter(Boolean).map(
+                  (acc, index) =>
+                    acc && (
+                      <option
+                        key={safeId(acc?.id) || `purch-${index}`}
+                        value={safeId(acc?.id)}
+                      >
+                        {safeStr(acc?.title, "—")} [{safeStr(acc?.code, "?")}]
+                      </option>
+                    ),
+                )}
               </select>
             )}
           </div>
@@ -488,83 +502,100 @@ export function PurchaseEntryPage() {
             </Button>
           </div>
 
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-[#F1F5F9] border-b border-[#E2E8F0] text-[11px] font-bold text-[#475569] uppercase">
-                <th className="p-2 border-r border-[#E2E8F0] w-12">#</th>
-                <th className="p-2 border-r border-[#E2E8F0]">
-                  Inventory Item
-                </th>
-                <th className="p-2 border-r border-[#E2E8F0] w-28">Quantity</th>
-                <th className="p-2 border-r border-[#E2E8F0] w-32">
-                  Purchase Price (PKR)
-                </th>
-                <th className="p-2 border-r border-[#E2E8F0] w-36">
-                  Total (PKR)
-                </th>
-                <th className="p-2 w-12 text-center">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {lineItems.map((item, idx) => (
-                <tr key={idx} className="border-b border-[#E2E8F0]">
-                  <td className="p-2 font-mono text-xs text-[#64748B] border-r border-[#E2E8F0]">
-                    {idx + 1}
-                  </td>
-                  <td className="p-1 border-r border-[#E2E8F0]">
-                    <select
-                      value={item.item_id}
-                      onChange={(e) =>
-                        handleLineItemChange(idx, "item_id", e.target.value)
-                      }
-                      className="w-full px-2 py-1 text-xs bg-white border border-[#CBD5E1] rounded-[3px]"
-                    >
-                      {availableItems.map((ai) => (
-                        <option key={ai.id} value={ai.id}>
-                          {ai.code} - {ai.name} (Stock: {ai.stock_qty})
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="p-1 border-r border-[#E2E8F0]">
-                    <input
-                      type="number"
-                      min="1"
-                      value={item.qty}
-                      onChange={(e) =>
-                        handleLineItemChange(idx, "qty", e.target.value)
-                      }
-                      className="w-full px-2 py-1 text-xs font-mono font-bold bg-white border border-[#CBD5E1] rounded-[3px]"
-                    />
-                  </td>
-                  <td className="p-1 border-r border-[#E2E8F0]">
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={item.unit_price}
-                      onChange={(e) =>
-                        handleLineItemChange(idx, "unit_price", e.target.value)
-                      }
-                      className="w-full px-2 py-1 text-xs font-mono bg-white border border-[#CBD5E1] rounded-[3px]"
-                    />
-                  </td>
-                  <td className="p-2 border-r border-[#E2E8F0] font-mono font-bold text-xs text-[#0F172A]">
-                    {formatCurrency(item.total)}
-                  </td>
-                  <td className="p-1 text-center">
-                    <button
-                      type="button"
-                      onClick={() => removeLineItem(idx)}
-                      disabled={lineItems.length === 1}
-                      className="text-[#DC2626] hover:bg-[#FEE2E2] p-1 rounded disabled:opacity-30"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </td>
+          {availableItems.length === 0 ? (
+            <div className="p-6 text-center">
+              <p className="text-sm font-semibold text-[#991B1B]">
+                No item found. First add the item.
+              </p>
+              <p className="text-[11px] text-[#64748B] mt-1">
+                Setups → Items mein product banao, phir yahan purchase karo.
+              </p>
+            </div>
+          ) : (
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-[#F1F5F9] border-b border-[#E2E8F0] text-[11px] font-bold text-[#475569] uppercase">
+                  <th className="p-2 border-r border-[#E2E8F0] w-12">#</th>
+                  <th className="p-2 border-r border-[#E2E8F0]">
+                    Inventory Item
+                  </th>
+                  <th className="p-2 border-r border-[#E2E8F0] w-28">
+                    Quantity
+                  </th>
+                  <th className="p-2 border-r border-[#E2E8F0] w-32">
+                    Purchase Price (PKR)
+                  </th>
+                  <th className="p-2 border-r border-[#E2E8F0] w-36">
+                    Total (PKR)
+                  </th>
+                  <th className="p-2 w-12 text-center">Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {lineItems.map((item, idx) => (
+                  <tr key={idx} className="border-b border-[#E2E8F0]">
+                    <td className="p-2 font-mono text-xs text-[#64748B] border-r border-[#E2E8F0]">
+                      {idx + 1}
+                    </td>
+                    <td className="p-1 border-r border-[#E2E8F0]">
+                      <select
+                        value={item.item_id}
+                        onChange={(e) =>
+                          handleLineItemChange(idx, "item_id", e.target.value)
+                        }
+                        className="w-full px-2 py-1 text-xs bg-white border border-[#CBD5E1] rounded-[3px]"
+                      >
+                        {availableItems.map((ai) => (
+                          <option key={ai.id} value={ai.id}>
+                            {ai.code} - {ai.name} (Stock: {ai.stock_qty})
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="p-1 border-r border-[#E2E8F0]">
+                      <input
+                        type="number"
+                        min="1"
+                        value={item.qty}
+                        onChange={(e) =>
+                          handleLineItemChange(idx, "qty", e.target.value)
+                        }
+                        className="w-full px-2 py-1 text-xs font-mono font-bold bg-white border border-[#CBD5E1] rounded-[3px]"
+                      />
+                    </td>
+                    <td className="p-1 border-r border-[#E2E8F0]">
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={item.unit_price}
+                        onChange={(e) =>
+                          handleLineItemChange(
+                            idx,
+                            "unit_price",
+                            e.target.value,
+                          )
+                        }
+                        className="w-full px-2 py-1 text-xs font-mono bg-white border border-[#CBD5E1] rounded-[3px]"
+                      />
+                    </td>
+                    <td className="p-2 border-r border-[#E2E8F0] font-mono font-bold text-xs text-[#0F172A]">
+                      {formatCurrency(item.total)}
+                    </td>
+                    <td className="p-1 text-center">
+                      <button
+                        type="button"
+                        onClick={() => removeLineItem(idx)}
+                        disabled={lineItems.length === 1}
+                        className="text-[#DC2626] hover:bg-[#FEE2E2] p-1 rounded disabled:opacity-30"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
 
         {/* Footer Payment Summary */}

@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Modal } from '../common/Modal';
 import { Search, ArrowDownLeft } from 'lucide-react';
 import { api } from '../../services/api';
-import { formatCurrency } from '../../utils/formatters';
+import { formatCurrency, safeNum } from '../../utils/formatters';
+import { hasOutstandingReceivable } from '../../utils/accountFilters';
 
 export function ReceivablesModal({ isOpen, onClose }) {
   const [customers, setCustomers] = useState([]);
@@ -38,8 +39,12 @@ export function ReceivablesModal({ isOpen, onClose }) {
     );
   }, [customers, search]);
 
-  const receivables = filtered.filter((c) => c.balance > 0);
-  const totalReceivable = receivables.reduce((sum, c) => sum + c.balance, 0);
+  const receivables = useMemo(() => {
+    return filtered
+      .filter(hasOutstandingReceivable)
+      .sort((a, b) => safeNum(b.balance) - safeNum(a.balance));
+  }, [filtered]);
+  const totalReceivable = receivables.reduce((sum, c) => sum + safeNum(c.balance), 0);
 
   const columns = [
     {
@@ -58,7 +63,7 @@ export function ReceivablesModal({ isOpen, onClose }) {
       header: 'Balance (PKR)',
       accessorKey: 'balance',
       cell: (info) => {
-        const val = Number(info.getValue()) || 0;
+        const val = safeNum(info.getValue(), 0);
         const color = val >= 0 ? 'text-[#DC2626]' : 'text-[#16A34A]';
         return (
           <span className={`font-mono font-bold text-right ${color}`}>
@@ -115,8 +120,8 @@ export function ReceivablesModal({ isOpen, onClose }) {
               </tr>
             </thead>
             <tbody>
-              {filtered.length > 0 ? (
-                filtered.map((c) => (
+              {receivables.length > 0 ? (
+                receivables.map((c) => (
                   <tr key={c.id} className="border-b border-[#E2E8F0] hover:bg-[#F8FAFC]">
                     {columns.map((col) => (
                       <td key={col.header} className="px-3 py-1.5 border-r border-[#E2E8F0] last:border-r-0">
@@ -128,7 +133,7 @@ export function ReceivablesModal({ isOpen, onClose }) {
               ) : (
                 <tr>
                   <td colSpan={columns.length} className="px-3 py-6 text-center text-[#94A3B8]">
-                    {loading ? 'Loading customers...' : 'No customers found.'}
+                    {loading ? 'Loading customers...' : 'No customers with outstanding receivables found.'}
                   </td>
                 </tr>
               )}

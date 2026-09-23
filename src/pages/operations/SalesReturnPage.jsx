@@ -18,6 +18,10 @@ import {
   safeStr,
   safeId,
 } from "../../utils/formatters";
+import {
+  filterCustomerAccounts,
+  filterRevenueAccounts,
+} from "../../utils/accountFilters";
 
 export function SalesReturnPage() {
   const [customers, setCustomers] = useState([]);
@@ -56,12 +60,8 @@ export function SalesReturnPage() {
     try {
       const accRes = await api.accounts.list({});
       if (accRes.success && accRes.data) {
-        const custs = accRes.data.filter(
-          (a) => a.account_type === "CUSTOMER" || a.sale_enabled,
-        );
-        const revenueAccounts = accRes.data.filter(
-          (a) => a.status === "Active" && (a.account_type === "REVENUE" || a.account_type === "SALES"),
-        );
+        const custs = filterCustomerAccounts(accRes.data);
+        const revenueAccounts = filterRevenueAccounts(accRes.data);
         setCustomers(custs);
         setAvailableRevenueAccounts(revenueAccounts);
         if (revenueAccounts.length) setSalesRevenueAccountId(safeId(revenueAccounts[0]?.id) || '');

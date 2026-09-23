@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Modal } from '../common/Modal';
 import { Search, ArrowUpRight } from 'lucide-react';
 import { api } from '../../services/api';
-import { formatCurrency } from '../../utils/formatters';
+import { formatCurrency, safeNum } from '../../utils/formatters';
+import { hasOutstandingPayable } from '../../utils/accountFilters';
 
 export function PayablesModal({ isOpen, onClose }) {
   const [suppliers, setSuppliers] = useState([]);
@@ -38,8 +39,12 @@ export function PayablesModal({ isOpen, onClose }) {
     );
   }, [suppliers, search]);
 
-  const payables = filtered.filter((s) => s.balance < 0);
-  const totalPayable = payables.reduce((sum, s) => sum + Math.abs(s.balance), 0);
+  const payables = useMemo(() => {
+    return filtered
+      .filter(hasOutstandingPayable)
+      .sort((a, b) => safeNum(a.balance) - safeNum(b.balance));
+  }, [filtered]);
+  const totalPayable = payables.reduce((sum, s) => sum + Math.abs(safeNum(s.balance)), 0);
 
   const columns = [
     {
@@ -58,7 +63,7 @@ export function PayablesModal({ isOpen, onClose }) {
       header: 'Balance (PKR)',
       accessorKey: 'balance',
       cell: (info) => {
-        const val = Number(info.getValue()) || 0;
+        const val = safeNum(info.getValue(), 0);
         const displayVal = val < 0 ? Math.abs(val) : val;
         return (
           <span className="font-mono font-bold text-right text-[#DC2626]">
@@ -110,8 +115,8 @@ export function PayablesModal({ isOpen, onClose }) {
               </tr>
             </thead>
             <tbody>
-              {filtered.length > 0 ? (
-                filtered.map((s) => (
+              {payables.length > 0 ? (
+                payables.map((s) => (
                   <tr key={s.id} className="border-b border-[#E2E8F0] hover:bg-[#F8FAFC]">
                     {columns.map((col) => (
                       <td key={col.header} className="px-3 py-1.5 border-r border-[#E2E8F0] last:border-r-0">
@@ -123,7 +128,7 @@ export function PayablesModal({ isOpen, onClose }) {
               ) : (
                 <tr>
                   <td colSpan={columns.length} className="px-3 py-6 text-center text-[#94A3B8]">
-                    {loading ? 'Loading suppliers...' : 'No suppliers found.'}
+                    {loading ? 'Loading suppliers...' : 'No suppliers with outstanding payables found.'}
                   </td>
                 </tr>
               )}
