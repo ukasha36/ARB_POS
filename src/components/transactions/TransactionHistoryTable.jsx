@@ -1,6 +1,6 @@
 import React from 'react';
 import { Edit, Trash2 } from 'lucide-react';
-import { formatCurrency } from '../../utils/formatters';
+import { formatCurrency, safeId, safeStr, safeNum, entryTypeLabel } from '../../utils/formatters';
 
 const resolveAmount = (tx) => {
   const amount = Number(
@@ -56,32 +56,34 @@ export function TransactionHistoryTable({
           </tr>
         </thead>
         <tbody className="divide-y divide-[#E2E8F0]">
-          {filtered.map((tx) => {
-            const isVoid = tx.status === 'VOID';
+          {filtered.filter(Boolean).map((tx, index) => {
+            // Guard against null/undefined tx object
+            if (!tx) return null;
+
+            const isVoid = safeStr(tx?.status) === 'VOID';
             const amount = resolveAmount(tx);
             const accountName = resolveAccountName(tx);
             return (
-              <tr key={tx.entry_id} className={`hover:bg-[#F8FAFC] ${isVoid ? 'opacity-60' : ''}`}>
-                <td className="px-2 py-1 font-mono text-[#475569]">{tx.date}</td>
+              <tr key={safeId(tx?.entry_id) || `tx-${index}`} className={`hover:bg-[#F8FAFC] ${isVoid ? 'opacity-60' : ''}`}>
+                <td className="px-2 py-1 font-mono text-[#475569]">{safeStr(tx?.date, '—')}</td>
                 <td className="px-2 py-1">
                   <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#EFF6FF] text-[#2563EB] border border-[#BFDBFE]">
-                    {tx.entry_type}
+                    {entryTypeLabel(safeStr(tx?.entry_type))}
                   </span>
                 </td>
                 <td className="px-2 py-1 font-mono text-[#0F172A]">{accountName || '—'}</td>
-                <td className="px-2 py-1 font-mono text-[#0F172A]">{tx.reference_no || '—'}</td>
+                <td className="px-2 py-1 font-mono text-[#0F172A]">{safeStr(tx?.reference_no, '—')}</td>
                 <td className="px-2 py-1 text-right font-mono font-bold text-[#2563EB]">
                   {formatCurrency(amount)}
                 </td>
                 <td className="px-2 py-1">
                   <span
-                    className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
-                      isVoid
+                    className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${isVoid
                         ? 'bg-[#FEF2F2] text-[#DC2626] border border-[#FCA5A5]'
                         : 'bg-[#DCFCE7] text-[#166534] border border-[#86EFAC]'
-                    }`}
+                      }`}
                   >
-                    {tx.status || 'POSTED'}
+                    {safeStr(tx?.status, 'POSTED')}
                   </span>
                 </td>
                 <td className="px-2 py-1 text-center">
@@ -89,7 +91,7 @@ export function TransactionHistoryTable({
                     {!isVoid && onEdit && (
                       <button
                         type="button"
-                        onClick={() => onEdit(tx)}
+                        onClick={() => tx && onEdit(tx)}
                         className="text-[#2563EB] hover:bg-[#EFF6FF] p-0.75 rounded"
                         title="Edit"
                       >
@@ -99,7 +101,7 @@ export function TransactionHistoryTable({
                     {!isVoid && onVoid && (
                       <button
                         type="button"
-                        onClick={() => onVoid(tx)}
+                        onClick={() => tx && onVoid(tx)}
                         className="text-[#DC2626] hover:bg-[#FEF2F2] p-0.75 rounded"
                         title="Void"
                       >

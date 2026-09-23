@@ -9,7 +9,8 @@ import { formatCurrency, safeNum, safeStr, safeId } from '../../utils/formatters
 export function SalesBillingPage() {
   const [customers, setCustomers] = useState([]);
   const [cashBankAccounts, setCashBankAccounts] = useState([]);
-  const [salesRevenueAccount, setSalesRevenueAccount] = useState(null);
+  const [salesRevenueAccountId, setSalesRevenueAccountId] = useState('');
+  const [availableRevenueAccounts, setAvailableRevenueAccounts] = useState([]);
   const [availableItems, setAvailableItems] = useState([]);
 
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -49,11 +50,13 @@ export function SalesBillingPage() {
       if (accRes.success && accRes.data) {
         const custs = accRes.data.filter((a) => a.account_type === 'CUSTOMER' || a.sale_enabled);
         const cb = accRes.data.filter((a) => a.account_type === 'CASH' || a.account_type === 'BANK');
-        const salesAcc = accRes.data.find((a) => a.code === '4001' || a.account_type === 'REVENUE' || a.account_type === 'SALES');
+        // Get all active REVENUE/SALES accounts for user to choose from
+        const revenueAccounts = accRes.data.filter((a) => a.status === 'Active' && (a.account_type === 'REVENUE' || a.account_type === 'SALES'));
 
         setCustomers(custs);
         setCashBankAccounts(cb);
-        setSalesRevenueAccount(salesAcc || null);
+        setAvailableRevenueAccounts(revenueAccounts);
+        if (revenueAccounts.length) setSalesRevenueAccountId(safeId(revenueAccounts[0]?.id) || '');
 
         if (custs.length) setCustomerId(custs[0].id);
         if (cb.length) setDepositAccountId(cb[0].id);
@@ -155,6 +158,11 @@ export function SalesBillingPage() {
       return;
     }
 
+    if (!salesRevenueAccountId) {
+      setStatus({ type: 'error', text: 'Please select a Sales Revenue Account from the dropdown.' });
+      return;
+    }
+
     if (grandTotal <= 0) {
       setStatus({ type: 'error', text: 'Invoice total must be greater than zero.' });
       return;
@@ -197,7 +205,7 @@ export function SalesBillingPage() {
       // 3. Credit line: Sales Revenue Account for Grand Total
       const credit_lines = [
         {
-          account_id: parseInt(salesRevenueAccount.id, 10),
+          account_id: parseInt(salesRevenueAccountId, 10),
           amount: grandTotal,
         }
       ];
@@ -265,7 +273,7 @@ export function SalesBillingPage() {
         setRemarks(safeStr(fullTx.description));
 
         const salesCredit = creditLines.find(l => l.account_type === 'REVENUE' || l.account_type === 'SALES' || l.account_type === 'INCOME');
-        if (salesCredit) setSalesRevenueAccount({ id: salesCredit.account_id });
+        if (salesCredit) setSalesRevenueAccountId(safeId(salesCredit.account_id));
 
         const cashDebit = debitLines.find(l => l.account_type === 'CASH' || l.account_type === 'BANK');
         if (cashDebit) setDepositAccountId(safeId(cashDebit.account_id));
@@ -406,6 +414,29 @@ export function SalesBillingPage() {
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="col-span-3">
+            <label className="block text-[11px] font-bold text-[#475569] uppercase mb-1">Sales Revenue Account *</label>
+            {availableRevenueAccounts.length === 0 ? (
+              <p className="text-[10px] text-[#DC2626]">
+                No REVENUE accounts found. Create one in Setups → Accounts.
+              </p>
+            ) : (
+              <select
+                value={salesRevenueAccountId}
+                onChange={(e) => setSalesRevenueAccountId(e.target.value)}
+                required
+                className="w-full px-2.5 py-1.5 text-xs font-semibold bg-white border border-[#CBD5E1] rounded-[3px]"
+              >
+                <option value="">[ SELECT SALES REVENUE ACCOUNT ]</option>
+                {availableRevenueAccounts.filter(Boolean).map((acc, index) => acc && (
+                  <option key={safeId(acc?.id) || `rev-${index}`} value={safeId(acc?.id)}>
+                    {safeStr(acc?.title, '—')} [{safeStr(acc?.code, '?')}]
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
         </div>
 

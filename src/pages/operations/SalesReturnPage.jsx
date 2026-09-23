@@ -22,7 +22,8 @@ import {
 export function SalesReturnPage() {
   const [customers, setCustomers] = useState([]);
   const [items, setItems] = useState([]);
-  const [salesAccount, setSalesAccount] = useState(null);
+  const [salesRevenueAccountId, setSalesRevenueAccountId] = useState('');
+  const [availableRevenueAccounts, setAvailableRevenueAccounts] = useState([]);
 
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [customerId, setCustomerId] = useState("");
@@ -58,14 +59,12 @@ export function SalesReturnPage() {
         const custs = accRes.data.filter(
           (a) => a.account_type === "CUSTOMER" || a.sale_enabled,
         );
-        const salesAcc = accRes.data.find(
-          (a) =>
-            a.code === "4001" ||
-            a.account_type === "REVENUE" ||
-            a.account_type === "SALES",
+        const revenueAccounts = accRes.data.filter(
+          (a) => a.status === "Active" && (a.account_type === "REVENUE" || a.account_type === "SALES"),
         );
         setCustomers(custs);
-        setSalesAccount(salesAcc || null);
+        setAvailableRevenueAccounts(revenueAccounts);
+        if (revenueAccounts.length) setSalesRevenueAccountId(safeId(revenueAccounts[0]?.id) || '');
         if (custs.length) setCustomerId(custs[0].id);
       }
 
@@ -123,10 +122,10 @@ export function SalesReturnPage() {
       return;
     }
 
-    if (!salesAccount) {
+    if (!salesRevenueAccountId) {
       setStatus({
         type: "error",
-        text: "Sales Revenue account (4001) not found in the chart of accounts.",
+        text: "Please select a Sales Revenue Account from the dropdown.",
       });
       return;
     }
@@ -142,7 +141,7 @@ export function SalesReturnPage() {
         description: `Sales Return - ${reason}`,
         reference_no: reference || `SRET-${Date.now().toString().slice(-4)}`,
         debit_lines: [
-          { account_id: parseInt(salesAccount.id, 10), amount: numAmount },
+          { account_id: parseInt(salesRevenueAccountId, 10), amount: numAmount },
         ],
         credit_lines: [
           { account_id: parseInt(customerId, 10), amount: numAmount },
@@ -282,11 +281,10 @@ export function SalesReturnPage() {
 
       {status && (
         <div
-          className={`p-3 rounded-[3px] text-xs font-semibold border flex items-center gap-2 ${
-            status.type === "success"
-              ? "bg-[#DCFCE7] text-[#166534] border-[#86EFAC]"
-              : "bg-[#FEF2F2] text-[#991B1B] border-[#FCA5A5]"
-          }`}
+          className={`p-3 rounded-[3px] text-xs font-semibold border flex items-center gap-2 ${status.type === "success"
+            ? "bg-[#DCFCE7] text-[#166534] border-[#86EFAC]"
+            : "bg-[#FEF2F2] text-[#991B1B] border-[#FCA5A5]"
+            }`}
         >
           {status.type === "success" ? (
             <CheckCircle2 className="w-4 h-4 text-[#16A34A]" />

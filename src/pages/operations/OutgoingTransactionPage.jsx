@@ -91,8 +91,9 @@ export function OutgoingTransactionPage() {
         setTargetAccounts(targets);
         setHasAccountsLoaded(true);
 
-        if (cb.length) setPaymentAccountId(cb[0].id);
-        if (targets.length) setTargetAccountId(targets[0].id);
+        // Guard against empty arrays or null objects inside arrays
+        if (cb.length && cb[0]?.id) setPaymentAccountId(safeId(cb[0].id));
+        if (targets.length && targets[0]?.id) setTargetAccountId(safeId(targets[0].id));
       }
     } catch (err) {
       console.error("Failed to load accounts for Outgoing Transaction", err);
@@ -125,9 +126,9 @@ export function OutgoingTransactionPage() {
     setReference("");
     setDescription("Supplier Payment / Expense Payment Voucher");
     setStatus(null);
-    // Reset dropdowns to first available account
-    if (cashBankAccounts.length) setPaymentAccountId(cashBankAccounts[0].id);
-    if (targetAccounts.length) setTargetAccountId(targetAccounts[0].id);
+    // Reset dropdowns to first available account (guard against null objects)
+    if (cashBankAccounts.length && cashBankAccounts[0]?.id) setPaymentAccountId(safeId(cashBankAccounts[0].id));
+    if (targetAccounts.length && targetAccounts[0]?.id) setTargetAccountId(safeId(targetAccounts[0].id));
   };
 
   const handlePostOutgoing = async (e) => {
@@ -224,28 +225,37 @@ export function OutgoingTransactionPage() {
 
   const handleEditOutgoing = async (tx) => {
     try {
-      const res = await api.transactions.get(tx.entry_id);
+      // Guard against null transaction
+      const entryId = safeId(tx?.entry_id);
+      if (!entryId) {
+        setStatus({ type: "error", text: "Invalid transaction ID" });
+        return;
+      }
+
+      const res = await api.transactions.get(entryId);
       if (res.success && res.data) {
         const fullTx = res.data;
-        const debitLines = fullTx.debit_lines || [];
-        const creditLines = fullTx.credit_lines || [];
+        const debitLines = (fullTx?.debit_lines || []).filter(Boolean);
+        const creditLines = (fullTx?.credit_lines || []).filter(Boolean);
 
-        setEditingEntryId(tx.entry_id);
-        setDate(safeStr(fullTx.date));
-        setReference(safeStr(fullTx.reference_no));
-        setDescription(safeStr(fullTx.description));
+        setEditingEntryId(entryId);
+        setDate(safeStr(fullTx?.date));
+        setReference(safeStr(fullTx?.reference_no));
+        setDescription(safeStr(fullTx?.description));
 
+        // Guard against null line items
         const supplierDebit = debitLines.find(
-          (l) => l.account_type === "SUPPLIER" || l.account_type === "EXPENSE",
+          (l) => l && (l.account_type === "SUPPLIER" || l.account_type === "EXPENSE"),
         );
-        if (supplierDebit) setTargetAccountId(safeId(supplierDebit.account_id));
+        if (supplierDebit?.account_id) setTargetAccountId(safeId(supplierDebit.account_id));
 
         const cashCredit = creditLines.find(
-          (l) => l.account_type === "CASH" || l.account_type === "BANK",
+          (l) => l && (l.account_type === "CASH" || l.account_type === "BANK"),
         );
-        if (cashCredit) setPaymentAccountId(safeId(cashCredit.account_id));
+        if (cashCredit?.account_id) setPaymentAccountId(safeId(cashCredit.account_id));
 
-        if (cashCredit) setAmount(safeStr(safeNum(cashCredit.amount)));
+        // Guard amount access
+        if (cashCredit?.amount) setAmount(safeStr(safeNum(cashCredit.amount)));
 
         setStatus({
           type: "success",
@@ -367,9 +377,9 @@ export function OutgoingTransactionPage() {
                   className="w-full px-2.5 py-1.5 text-xs font-semibold bg-white border border-[#CBD5E1] rounded-[3px]"
                 >
                   <option value="">[ SELECT SUPPLIER / EXPENSE ]</option>
-                  {targetAccounts.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.title} [{t.code}]
+                  {targetAccounts.filter(Boolean).map((t, index) => t && (
+                    <option key={safeId(t?.id) || `target-${index}`} value={safeId(t?.id)}>
+                      {safeStr(t?.title, '—')} [{safeStr(t?.code, '?')}]
                     </option>
                   ))}
                 </select>
@@ -397,9 +407,9 @@ export function OutgoingTransactionPage() {
                   required
                   className="w-full px-2.5 py-1.5 text-xs font-semibold bg-white border border-[#CBD5E1] rounded-[3px]"
                 >
-                  {cashBankAccounts.map((cb) => (
-                    <option key={cb.id} value={cb.id}>
-                      {cb.title} [{cb.code}]
+                  {cashBankAccounts.filter(Boolean).map((cb, index) => cb && (
+                    <option key={safeId(cb?.id) || `cash-${index}`} value={safeId(cb?.id)}>
+                      {safeStr(cb?.title, '—')} [{safeStr(cb?.code, '?')}]
                     </option>
                   ))}
                 </select>
@@ -597,7 +607,7 @@ export function OutgoingTransactionPage() {
         >
           <div className="p-4">
             <p className="text-xs text-[#475569] mb-2">
-              Void payment #{voidConfirm.tx.reference_no}? This reverses all
+              Void payment #{safeStr(voidConfirm.tx?.reference_no, 'N/A')}? This reverses all
               ledger effects and cannot be undone.
             </p>
             <div className="flex justify-end gap-2">

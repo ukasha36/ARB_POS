@@ -22,7 +22,8 @@ import {
 export function PurchaseReturnPage() {
   const [suppliers, setSuppliers] = useState([]);
   const [items, setItems] = useState([]);
-  const [purchasesAccount, setPurchasesAccount] = useState(null);
+  const [purchasesAccountId, setPurchasesAccountId] = useState('');
+  const [availablePurchasesAccounts, setAvailablePurchasesAccounts] = useState([]);
 
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [supplierId, setSupplierId] = useState("");
@@ -60,13 +61,12 @@ export function PurchaseReturnPage() {
         const supps = accRes.data.filter(
           (a) => a.account_type === "SUPPLIER" || a.purchase_enabled,
         );
-        const purchAcc = accRes.data.find(
-          (a) => a.code === "5001" || a.account_type === "PURCHASES",
+        const purchasesAccounts = accRes.data.filter(
+          (a) => a.status === "Active" && (a.account_type === "PURCHASES" || a.account_type === "INVENTORY"),
         );
         setSuppliers(supps);
-        setPurchasesAccount(
-          purchAcc || null,
-        );
+        setAvailablePurchasesAccounts(purchasesAccounts);
+        if (purchasesAccounts.length) setPurchasesAccountId(safeId(purchasesAccounts[0]?.id) || '');
         if (supps.length) setSupplierId(supps[0].id);
       }
 
@@ -283,11 +283,10 @@ export function PurchaseReturnPage() {
 
       {status && (
         <div
-          className={`p-3 rounded-[3px] text-xs font-semibold border flex items-center gap-2 ${
-            status.type === "success"
-              ? "bg-[#DCFCE7] text-[#166534] border-[#86EFAC]"
-              : "bg-[#FEF2F2] text-[#991B1B] border-[#FCA5A5]"
-          }`}
+          className={`p-3 rounded-[3px] text-xs font-semibold border flex items-center gap-2 ${status.type === "success"
+            ? "bg-[#DCFCE7] text-[#166534] border-[#86EFAC]"
+            : "bg-[#FEF2F2] text-[#991B1B] border-[#FCA5A5]"
+            }`}
         >
           {status.type === "success" ? (
             <CheckCircle2 className="w-4 h-4 text-[#16A34A]" />

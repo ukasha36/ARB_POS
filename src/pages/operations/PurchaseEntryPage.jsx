@@ -23,7 +23,8 @@ import {
 export function PurchaseEntryPage() {
   const [suppliers, setSuppliers] = useState([]);
   const [cashBankAccounts, setCashBankAccounts] = useState([]);
-  const [purchasesAccount, setPurchasesAccount] = useState(null);
+  const [purchasesAccountId, setPurchasesAccountId] = useState('');
+  const [availablePurchasesAccounts, setAvailablePurchasesAccounts] = useState([]);
   const [availableItems, setAvailableItems] = useState([]);
 
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
@@ -68,13 +69,14 @@ export function PurchaseEntryPage() {
         const cb = accRes.data.filter(
           (a) => a.account_type === "CASH" || a.account_type === "BANK",
         );
-        const purchAcc = accRes.data.find(
-          (a) => a.code === "5001" || a.account_type === "PURCHASES",
+        const purchasesAccounts = accRes.data.filter(
+          (a) => a.status === "Active" && (a.account_type === "PURCHASES" || a.account_type === "INVENTORY"),
         );
 
         setSuppliers(supps);
         setCashBankAccounts(cb);
-        setPurchasesAccount(purchAcc || null);
+        setAvailablePurchasesAccounts(purchasesAccounts);
+        if (purchasesAccounts.length) setPurchasesAccountId(safeId(purchasesAccounts[0]?.id) || '');
 
         if (supps.length) setSupplierId(supps[0].id);
         if (cb.length) setPaymentAccountId(cb[0].id);
@@ -159,6 +161,14 @@ export function PurchaseEntryPage() {
       return;
     }
 
+    if (!purchasesAccountId) {
+      setStatus({
+        type: "error",
+        text: "Please select a Purchases Account from the dropdown.",
+      });
+      return;
+    }
+
     if (grandTotal <= 0) {
       setStatus({
         type: "error",
@@ -186,7 +196,7 @@ export function PurchaseEntryPage() {
       }
 
       const debit_lines = [
-        { account_id: parseInt(purchasesAccount.id, 10), amount: grandTotal },
+        { account_id: parseInt(purchasesAccountId, 10), amount: grandTotal },
       ];
 
       const inventory_lines = lineItems.map((li) => ({
@@ -255,10 +265,7 @@ export function PurchaseEntryPage() {
             debitLines.find((l) => l.account_type === "PURCHASES") ||
             debitLines[0];
           if (purchasesLine)
-            setPurchasesAccount({
-              id: purchasesLine.account_id,
-              account_type: purchasesLine.account_type,
-            });
+            setPurchasesAccountId(safeId(purchasesLine.account_id));
         }
 
         if (creditLines.length > 0) {
@@ -436,6 +443,31 @@ export function PurchaseEntryPage() {
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="col-span-3">
+            <label className="block text-[11px] font-bold text-[#475569] uppercase mb-1">
+              Purchases Account *
+            </label>
+            {availablePurchasesAccounts.length === 0 ? (
+              <p className="text-[10px] text-[#DC2626]">
+                No PURCHASES accounts found. Create one in Setups → Accounts.
+              </p>
+            ) : (
+              <select
+                value={purchasesAccountId}
+                onChange={(e) => setPurchasesAccountId(e.target.value)}
+                required
+                className="w-full px-2.5 py-1.5 text-xs font-semibold bg-white border border-[#CBD5E1] rounded-[3px]"
+              >
+                <option value="">[ SELECT PURCHASES ACCOUNT ]</option>
+                {availablePurchasesAccounts.filter(Boolean).map((acc, index) => acc && (
+                  <option key={safeId(acc?.id) || `purch-${index}`} value={safeId(acc?.id)}>
+                    {safeStr(acc?.title, '—')} [{safeStr(acc?.code, '?')}]
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
         </div>
 
