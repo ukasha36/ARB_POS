@@ -20,18 +20,20 @@ class ReportRepository extends BaseRepository {
       WHERE status = 'Active'
     `).get();
 
-    // Accounts Receivable: Sum of outstanding net balances of all CUSTOMER accounts
+    // Accounts Receivable: Sum of outstanding net balances of all CUSTOMER accounts (EXCLUDE 1101 / CUST_GEN)
     const customerAccounts = db.prepare(`
       SELECT 
         a.id,
+        a.code,
+        a.short_name,
         a.opening_balance,
         a.opening_balance_type,
-        COALESCE(SUM(CASE WHEN ll.type = 'debit' THEN ll.amount ELSE 0 END), 0) as debits,
-        COALESCE(SUM(CASE WHEN ll.type = 'credit' THEN ll.amount ELSE 0 END), 0) as credits
+        COALESCE(SUM(CASE WHEN ll.type = 'debit' AND me.status = 'POSTED' THEN ll.amount ELSE 0 END), 0) as debits,
+        COALESCE(SUM(CASE WHEN ll.type = 'credit' AND me.status = 'POSTED' THEN ll.amount ELSE 0 END), 0) as credits
       FROM accounts a
       LEFT JOIN ledger_lines ll ON a.id = ll.account_id
-      LEFT JOIN master_entries me ON ll.entry_id = me.id AND me.status = 'POSTED'
-      WHERE a.account_type = 'CUSTOMER'
+      LEFT JOIN master_entries me ON ll.entry_id = me.id
+      WHERE a.account_type = 'CUSTOMER' AND a.code != '1101' AND COALESCE(a.short_name, '') != 'CUST_GEN'
       GROUP BY a.id
     `).all();
 
@@ -45,18 +47,20 @@ class ReportRepository extends BaseRepository {
     }
     totalReceivables = Math.round(totalReceivables * 100) / 100;
 
-    // Accounts Payable: Sum of outstanding net balances of all SUPPLIER accounts
+    // Accounts Payable: Sum of outstanding net balances of all SUPPLIER accounts (EXCLUDE 2001 / SUPP_GEN)
     const supplierAccounts = db.prepare(`
       SELECT 
         a.id,
+        a.code,
+        a.short_name,
         a.opening_balance,
         a.opening_balance_type,
-        COALESCE(SUM(CASE WHEN ll.type = 'debit' THEN ll.amount ELSE 0 END), 0) as debits,
-        COALESCE(SUM(CASE WHEN ll.type = 'credit' THEN ll.amount ELSE 0 END), 0) as credits
+        COALESCE(SUM(CASE WHEN ll.type = 'credit' AND me.status = 'POSTED' THEN ll.amount ELSE 0 END), 0) as credits,
+        COALESCE(SUM(CASE WHEN ll.type = 'debit' AND me.status = 'POSTED' THEN ll.amount ELSE 0 END), 0) as debits
       FROM accounts a
       LEFT JOIN ledger_lines ll ON a.id = ll.account_id
-      LEFT JOIN master_entries me ON ll.entry_id = me.id AND me.status = 'POSTED'
-      WHERE a.account_type = 'SUPPLIER'
+      LEFT JOIN master_entries me ON ll.entry_id = me.id
+      WHERE a.account_type = 'SUPPLIER' AND a.code != '2001' AND COALESCE(a.short_name, '') != 'SUPP_GEN'
       GROUP BY a.id
     `).all();
 
@@ -146,7 +150,7 @@ class ReportRepository extends BaseRepository {
       FROM master_entries me
       JOIN ledger_lines ll ON me.id = ll.entry_id
       JOIN accounts a ON ll.account_id = a.id
-      WHERE me.status = 'POSTED' AND me.date = ? AND me.entry_type = 'RECEIPT' AND ll.type = 'credit' AND a.account_type = 'CUSTOMER'
+      WHERE me.status = 'POSTED' AND me.date = ? AND me.entry_type IN ('RECEIPT', 'HO_INCOMING') AND ll.type = 'credit' AND a.account_type = 'CUSTOMER'
     `).get(today);
 
     const todayPaymentsRow = db.prepare(`
@@ -154,7 +158,7 @@ class ReportRepository extends BaseRepository {
       FROM master_entries me
       JOIN ledger_lines ll ON me.id = ll.entry_id
       JOIN accounts a ON ll.account_id = a.id
-      WHERE me.status = 'POSTED' AND me.date = ? AND me.entry_type = 'PAYMENT' AND ll.type = 'debit' AND a.account_type IN ('SUPPLIER', 'EXPENSE')
+      WHERE me.status = 'POSTED' AND me.date = ? AND me.entry_type IN ('PAYMENT', 'HO_OUTGOING') AND ll.type = 'debit' AND a.account_type IN ('SUPPLIER', 'EXPENSE')
     `).get(today);
 
     // Recent Transactions (top 8 posted transactions)
@@ -615,7 +619,7 @@ class ReportRepository extends BaseRepository {
     };
   }
 
-  // 6. Authoritative Sales Report
+  // 6. Authoritative Sales Report with FIFO Outstanding Calculation
   getSalesReport(filters = {}) {
     const db = this.db;
     const { dateFrom, dateTo, customerId } = filters;
@@ -626,6 +630,7 @@ class ReportRepository extends BaseRepository {
         me.date,
         me.reference_no,
         me.description,
+        me.party_account_id,
         (
           SELECT COALESCE(SUM(it.qty), 0)
           FROM inventory_transactions it
@@ -648,13 +653,7 @@ class ReportRepository extends BaseRepository {
           FROM ledger_lines ll
           JOIN accounts a ON ll.account_id = a.id
           WHERE ll.entry_id = me.id AND a.account_type IN ('CASH', 'BANK') AND ll.type = 'debit'
-        ) as cash_received,
-        (
-          SELECT COALESCE(SUM(ll.amount), 0)
-          FROM ledger_lines ll
-          JOIN accounts a ON ll.account_id = a.id
-          WHERE ll.entry_id = me.id AND a.account_type = 'CUSTOMER' AND ll.type = 'debit'
-        ) as credit_amount
+        ) as cash_received
       FROM master_entries me
       WHERE me.entry_type = 'SALE' AND me.status = 'POSTED'
     `;
@@ -673,10 +672,73 @@ class ReportRepository extends BaseRepository {
       params.push(parseInt(customerId, 10));
     }
 
-    sql += ' ORDER BY me.date DESC, me.id DESC';
-    const records = db.prepare(sql).all(...params);
+    sql += ' ORDER BY me.date ASC, me.id ASC';
+    const saleRecords = db.prepare(sql).all(...params);
 
-    // Sales Returns in this period
+    // Build map of customer ID -> list of open sales
+    const customerSalesMap = {};
+    for (const sale of saleRecords) {
+      const custId = sale.party_account_id || 0;
+      if (!customerSalesMap[custId]) {
+        customerSalesMap[custId] = [];
+      }
+      customerSalesMap[custId].push({
+        entry_id: sale.entry_id,
+        date: sale.date,
+        reference_no: sale.reference_no,
+        description: sale.description,
+        total_qty: sale.total_qty,
+        customer_name: sale.customer_name,
+        gross_amount: Number(sale.gross_amount),
+        cash_received: Number(sale.cash_received),
+        outstanding: Number(sale.gross_amount) - Number(sale.cash_received), // initial outstanding
+      });
+    }
+
+    // Get all POSTED receipts/HO_INCOMING in the period
+    let receiptSql = `
+      SELECT 
+        me.id as entry_id,
+        me.date,
+        me.party_account_id,
+        (
+          SELECT COALESCE(SUM(ll.amount), 0)
+          FROM ledger_lines ll
+          JOIN accounts a ON ll.account_id = a.id
+          WHERE ll.entry_id = me.id AND a.account_type = 'CUSTOMER' AND ll.type = 'credit'
+        ) as receipt_amount
+      FROM master_entries me
+      WHERE me.entry_type IN ('RECEIPT', 'HO_INCOMING') AND me.status = 'POSTED'
+    `;
+    const receiptParams = [];
+    if (dateFrom) {
+      receiptSql += ' AND me.date >= ?';
+      receiptParams.push(dateFrom);
+    }
+    if (dateTo) {
+      receiptSql += ' AND me.date <= ?';
+      receiptParams.push(dateTo);
+    }
+    receiptSql += ' ORDER BY me.date ASC, me.id ASC';
+    const receipts = db.prepare(receiptSql).all(...receiptParams);
+
+    // Apply receipts FIFO to each customer's sales
+    for (const receipt of receipts) {
+      const custId = receipt.party_account_id || 0;
+      if (!customerSalesMap[custId]) continue;
+
+      let remaining = Number(receipt.receipt_amount);
+      const sales = customerSalesMap[custId];
+      for (let i = 0; i < sales.length && remaining > 0; i++) {
+        if (sales[i].outstanding > 0) {
+          const applied = Math.min(sales[i].outstanding, remaining);
+          sales[i].outstanding -= applied;
+          remaining -= applied;
+        }
+      }
+    }
+
+    // Get sales returns in the period
     let returnSql = `
       SELECT COALESCE(SUM(ll.amount), 0.00) as total_returns
       FROM master_entries me
@@ -696,25 +758,34 @@ class ReportRepository extends BaseRepository {
     const returnRow = db.prepare(returnSql).get(...returnParams);
     const totalReturns = Number(returnRow?.total_returns || 0);
 
-    const totalGross = records.reduce((s, r) => s + Number(r.gross_amount), 0);
-    const totalCash = records.reduce((s, r) => s + Number(r.cash_received), 0);
-    const totalCredit = records.reduce((s, r) => s + Number(r.credit_amount), 0);
+    // Flatten and compute summary
+    const records = [];
+    for (const custId in customerSalesMap) {
+      records.push(...customerSalesMap[custId]);
+    }
+
+    const totalGross = records.reduce((s, r) => s + r.gross_amount, 0);
+    const totalCash = records.reduce((s, r) => s + r.cash_received, 0);
+    const totalOutstanding = records.reduce((s, r) => s + r.outstanding, 0);
     const totalItems = records.reduce((s, r) => s + Number(r.total_qty), 0);
 
     return {
-      records,
+      records: records.map(r => ({
+        ...r,
+        credit_amount: r.outstanding, // Use FIFO-computed outstanding
+      })),
       summary: {
         grossSales: Math.round(totalGross * 100) / 100,
         returns: Math.round(totalReturns * 100) / 100,
         netSales: Math.round((totalGross - totalReturns) * 100) / 100,
         cashReceived: Math.round(totalCash * 100) / 100,
-        creditSales: Math.round(totalCredit * 100) / 100,
+        creditSales: Math.round(totalOutstanding * 100) / 100,
         totalItemsSold: totalItems,
       },
     };
   }
 
-  // 7. Authoritative Purchase Report
+  // 7. Authoritative Purchase Report with FIFO Outstanding Calculation
   getPurchaseReport(filters = {}) {
     const db = this.db;
     const { dateFrom, dateTo, supplierId } = filters;
@@ -725,6 +796,7 @@ class ReportRepository extends BaseRepository {
         me.date,
         me.reference_no,
         me.description,
+        me.party_account_id,
         (
           SELECT COALESCE(SUM(it.qty), 0)
           FROM inventory_transactions it
@@ -747,13 +819,7 @@ class ReportRepository extends BaseRepository {
           FROM ledger_lines ll
           JOIN accounts a ON ll.account_id = a.id
           WHERE ll.entry_id = me.id AND a.account_type IN ('CASH', 'BANK') AND ll.type = 'credit'
-        ) as cash_paid,
-        (
-          SELECT COALESCE(SUM(ll.amount), 0)
-          FROM ledger_lines ll
-          JOIN accounts a ON ll.account_id = a.id
-          WHERE ll.entry_id = me.id AND a.account_type = 'SUPPLIER' AND ll.type = 'credit'
-        ) as credit_payable
+        ) as cash_paid
       FROM master_entries me
       WHERE me.entry_type = 'PURCHASE' AND me.status = 'POSTED'
     `;
@@ -772,10 +838,73 @@ class ReportRepository extends BaseRepository {
       params.push(parseInt(supplierId, 10));
     }
 
-    sql += ' ORDER BY me.date DESC, me.id DESC';
-    const records = db.prepare(sql).all(...params);
+    sql += ' ORDER BY me.date ASC, me.id ASC';
+    const purchaseRecords = db.prepare(sql).all(...params);
 
-    // Purchase Returns
+    // Build map of supplier ID -> list of open purchases
+    const supplierPurchasesMap = {};
+    for (const purchase of purchaseRecords) {
+      const suppId = purchase.party_account_id || 0;
+      if (!supplierPurchasesMap[suppId]) {
+        supplierPurchasesMap[suppId] = [];
+      }
+      supplierPurchasesMap[suppId].push({
+        entry_id: purchase.entry_id,
+        date: purchase.date,
+        reference_no: purchase.reference_no,
+        description: purchase.description,
+        total_qty: purchase.total_qty,
+        supplier_name: purchase.supplier_name,
+        gross_amount: Number(purchase.gross_amount),
+        cash_paid: Number(purchase.cash_paid),
+        outstanding: Number(purchase.gross_amount) - Number(purchase.cash_paid), // initial outstanding
+      });
+    }
+
+    // Get all POSTED payments/HO_OUTGOING in the period
+    let paymentSql = `
+      SELECT 
+        me.id as entry_id,
+        me.date,
+        me.party_account_id,
+        (
+          SELECT COALESCE(SUM(ll.amount), 0)
+          FROM ledger_lines ll
+          JOIN accounts a ON ll.account_id = a.id
+          WHERE ll.entry_id = me.id AND a.account_type = 'SUPPLIER' AND ll.type = 'debit'
+        ) as payment_amount
+      FROM master_entries me
+      WHERE me.entry_type IN ('PAYMENT', 'HO_OUTGOING') AND me.status = 'POSTED'
+    `;
+    const paymentParams = [];
+    if (dateFrom) {
+      paymentSql += ' AND me.date >= ?';
+      paymentParams.push(dateFrom);
+    }
+    if (dateTo) {
+      paymentSql += ' AND me.date <= ?';
+      paymentParams.push(dateTo);
+    }
+    paymentSql += ' ORDER BY me.date ASC, me.id ASC';
+    const payments = db.prepare(paymentSql).all(...paymentParams);
+
+    // Apply payments FIFO to each supplier's purchases
+    for (const payment of payments) {
+      const suppId = payment.party_account_id || 0;
+      if (!supplierPurchasesMap[suppId]) continue;
+
+      let remaining = Number(payment.payment_amount);
+      const purchases = supplierPurchasesMap[suppId];
+      for (let i = 0; i < purchases.length && remaining > 0; i++) {
+        if (purchases[i].outstanding > 0) {
+          const applied = Math.min(purchases[i].outstanding, remaining);
+          purchases[i].outstanding -= applied;
+          remaining -= applied;
+        }
+      }
+    }
+
+    // Get purchase returns in the period
     let returnSql = `
       SELECT COALESCE(SUM(ll.amount), 0.00) as total_returns
       FROM master_entries me
@@ -795,19 +924,28 @@ class ReportRepository extends BaseRepository {
     const returnRow = db.prepare(returnSql).get(...returnParams);
     const totalReturns = Number(returnRow?.total_returns || 0);
 
-    const totalGross = records.reduce((s, r) => s + Number(r.gross_amount), 0);
-    const totalCash = records.reduce((s, r) => s + Number(r.cash_paid), 0);
-    const totalCredit = records.reduce((s, r) => s + Number(r.credit_payable), 0);
+    // Flatten and compute summary
+    const records = [];
+    for (const suppId in supplierPurchasesMap) {
+      records.push(...supplierPurchasesMap[suppId]);
+    }
+
+    const totalGross = records.reduce((s, r) => s + r.gross_amount, 0);
+    const totalCash = records.reduce((s, r) => s + r.cash_paid, 0);
+    const totalOutstanding = records.reduce((s, r) => s + r.outstanding, 0);
     const totalItems = records.reduce((s, r) => s + Number(r.total_qty), 0);
 
     return {
-      records,
+      records: records.map(r => ({
+        ...r,
+        credit_payable: r.outstanding, // Use FIFO-computed outstanding
+      })),
       summary: {
         grossPurchases: Math.round(totalGross * 100) / 100,
         returns: Math.round(totalReturns * 100) / 100,
         netPurchases: Math.round((totalGross - totalReturns) * 100) / 100,
         cashPaid: Math.round(totalCash * 100) / 100,
-        creditPayable: Math.round(totalCredit * 100) / 100,
+        creditPayable: Math.round(totalOutstanding * 100) / 100,
         totalItemsPurchased: totalItems,
       },
     };
