@@ -22,6 +22,12 @@ export function GeneralLedgerPage() {
   const [records, setRecords] = useState([]);
   const [totalDebit, setTotalDebit] = useState(0);
   const [totalCredit, setTotalCredit] = useState(0);
+  const [transactionBalance, setTransactionBalance] = useState('BALANCED');
+  const [unbalancedEntryCount, setUnbalancedEntryCount] = useState(0);
+  const [unbalancedRefs, setUnbalancedRefs] = useState([]);
+  const [fullTransactionDebit, setFullTransactionDebit] = useState(0);
+  const [fullTransactionCredit, setFullTransactionCredit] = useState(0);
+  const [isAccountFiltered, setIsAccountFiltered] = useState(false);
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedEntryId, setSelectedEntryId] = useState(null);
@@ -58,6 +64,12 @@ export function GeneralLedgerPage() {
         setRecords(res.data.records || []);
         setTotalDebit(res.data.totalDebit || 0);
         setTotalCredit(res.data.totalCredit || 0);
+        setTransactionBalance(res.data.transactionBalance || 'BALANCED');
+        setUnbalancedEntryCount(res.data.unbalancedEntryCount || 0);
+        setUnbalancedRefs(res.data.unbalancedRefs || []);
+        setFullTransactionDebit(res.data.fullTransactionDebit || 0);
+        setFullTransactionCredit(res.data.fullTransactionCredit || 0);
+        setIsAccountFiltered(res.data.isAccountFiltered || false);
       }
     } catch (err) {
       console.error("Failed to load general ledger:", err);
@@ -85,8 +97,8 @@ export function GeneralLedgerPage() {
     setTimeout(loadLedger, 0);
   };
 
-  const isBalanced =
-    Math.round(totalDebit * 100) === Math.round(totalCredit * 100);
+  // Integrity badge uses full transaction balance — NOT filtered row totals
+  const isBalanced = transactionBalance === 'BALANCED';
 
   const columns = useMemo(
     () => [
@@ -261,7 +273,7 @@ export function GeneralLedgerPage() {
         <div className="bg-white p-3 border border-[#E2E8F0] rounded-[4px] shadow-sm">
           <div className="flex items-center justify-between text-[#64748B] mb-1">
             <span className="text-[11px] font-bold uppercase tracking-wider">
-              Total Debit (In side)
+              {isAccountFiltered ? 'Filtered Debit' : 'Total Debit (In side)'}
             </span>
             <ArrowUpRight className="w-4 h-4 text-[#2563EB]" />
           </div>
@@ -269,14 +281,14 @@ export function GeneralLedgerPage() {
             {formatCurrency(totalDebit)}
           </div>
           <span className="text-[10px] text-[#94A3B8]">
-            Sum of debit lines in range
+            {isAccountFiltered ? 'Displayed rows only' : 'Sum of debit lines in range'}
           </span>
         </div>
 
         <div className="bg-white p-3 border border-[#E2E8F0] rounded-[4px] shadow-sm">
           <div className="flex items-center justify-between text-[#64748B] mb-1">
             <span className="text-[11px] font-bold uppercase tracking-wider">
-              Total Credit (Out side)
+              {isAccountFiltered ? 'Filtered Credit' : 'Total Credit (Out side)'}
             </span>
             <ArrowDownLeft className="w-4 h-4 text-[#16A34A]" />
           </div>
@@ -284,14 +296,14 @@ export function GeneralLedgerPage() {
             {formatCurrency(totalCredit)}
           </div>
           <span className="text-[10px] text-[#94A3B8]">
-            Sum of credit lines in range
+            {isAccountFiltered ? 'Displayed rows only' : 'Sum of credit lines in range'}
           </span>
         </div>
 
         <div className="bg-white p-3 border border-[#E2E8F0] rounded-[4px] shadow-sm">
           <div className="flex items-center justify-between text-[#64748B] mb-1">
             <span className="text-[11px] font-bold uppercase tracking-wider">
-              Double-Entry Balance
+              Double-Entry Integrity
             </span>
             {isBalanced ? (
               <CheckCircle2 className="w-4 h-4 text-[#16A34A]" />
@@ -299,6 +311,13 @@ export function GeneralLedgerPage() {
               <AlertCircle className="w-4 h-4 text-[#DC2626]" />
             )}
           </div>
+          {isAccountFiltered && (
+            <div className="mb-1">
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#FEF9C3] text-[#92400E] border border-[#FDE68A]">
+                {selectedAccountType || 'FILTERED'} VIEW
+              </span>
+            </div>
+          )}
           <div className="flex items-center gap-2">
             <span
               className={`px-2 py-0.5 rounded text-xs font-bold ${
@@ -310,10 +329,18 @@ export function GeneralLedgerPage() {
               {isBalanced ? "BALANCED" : "UNBALANCED"}
             </span>
           </div>
-          <span className="text-[10px] text-[#94A3B8] block mt-1">
-            Agar Balanced hai to entries theek hain. Difference:{" "}
-            {formatCurrency(Math.abs(totalDebit - totalCredit))}
-          </span>
+          {isBalanced ? (
+            <span className="text-[10px] text-[#94A3B8] block mt-1">
+              {isAccountFiltered
+                ? `Complete transactions balanced. DR ${formatCurrency(fullTransactionDebit)} = CR ${formatCurrency(fullTransactionCredit)}`
+                : `All entries balanced. Difference: ${formatCurrency(Math.abs(totalDebit - totalCredit))}`}
+            </span>
+          ) : (
+            <span className="text-[10px] text-[#991B1B] block mt-1">
+              {unbalancedEntryCount} unbalanced
+              {unbalancedRefs.length > 0 && `: ${unbalancedRefs.slice(0, 3).join(', ')}${unbalancedRefs.length > 3 ? '...' : ''}`}
+            </span>
+          )}
         </div>
       </div>
 

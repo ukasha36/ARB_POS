@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import {
   DollarSign,
-  FileCheck,
+  TrendingDown,
   ArrowDownLeft,
   ArrowUpRight,
   RefreshCw,
@@ -39,7 +39,7 @@ export function DashboardPage() {
   const [data, setData] = useState({
     metrics: {
       totalStockValue: 0,
-      postDatedChequesPending: { count: 0, amount: 0 },
+      monthlyExpenses: 0,
       accountsReceivable: 0,
       accountsPayable: 0,
     },
@@ -56,10 +56,7 @@ export function DashboardPage() {
         setData({
           metrics: {
             totalStockValue: Number(m.totalStockValue) || 0,
-            postDatedChequesPending: {
-              count: Number(m.postDatedChequesPending?.count) || 0,
-              amount: Number(m.postDatedChequesPending?.amount) || 0,
-            },
+            monthlyExpenses: Number(m.monthlyExpenses) || 0,
             accountsReceivable: Number(m.accountsReceivable) || 0,
             accountsPayable: Number(m.accountsPayable) || 0,
           },
@@ -273,49 +270,46 @@ export function DashboardPage() {
           </div>
         </div>
 
-        {/* Post-Dated Cheques */}
-        <div className="bg-white p-3.5 rounded-[4px] border border-[#E2E8F0] border-l-4 border-l-[#D97706] shadow-2xs">
+        {/* Total Expense (Current Month) */}
+        <div className="bg-white p-3.5 rounded-[4px] border border-[#E2E8F0] border-l-4 border-l-[#DC2626] shadow-2xs">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold uppercase tracking-wider text-[#64748B]">
-              Post-Dated Cheques
+              Total Expense
             </span>
             <div className="flex items-center gap-1">
               <button
                 type="button"
-                onClick={() => toggleCard("cheques")}
-                className="p-1 rounded text-[#94A3B8] hover:text-[#D97706] hover:bg-[#FEF3C7] transition-colors cursor-pointer"
+                onClick={() => toggleCard("expense")}
+                className="p-1 rounded text-[#94A3B8] hover:text-[#DC2626] hover:bg-[#FEF2F2] transition-colors cursor-pointer"
                 title={
-                  isValueVisible("cheques")
-                    ? "Hide cheques amount"
-                    : "See cheques amount"
+                  isValueVisible("expense")
+                    ? "Hide expense amount"
+                    : "See expense amount"
                 }
               >
-                {isValueVisible("cheques") ? (
+                {isValueVisible("expense") ? (
                   <EyeOff className="w-3.5 h-3.5" />
                 ) : (
                   <Eye className="w-3.5 h-3.5" />
                 )}
               </button>
-              <div className="p-1.5 bg-[#FEF3C7] rounded text-[#D97706]">
-                <FileCheck className="w-4 h-4" />
+              <div className="p-1.5 bg-[#FEF2F2] rounded text-[#DC2626]">
+                <TrendingDown className="w-4 h-4" />
               </div>
             </div>
           </div>
           <div className="mt-2">
             <h3 className="text-xl font-bold font-mono text-[#0F172A]">
-              {isValueVisible("cheques") ? (
-                formatCurrency(
-                  data.metrics?.postDatedChequesPending?.amount ?? 0,
-                )
+              {isValueVisible("expense") ? (
+                formatCurrency(data.metrics?.monthlyExpenses ?? 0)
               ) : (
                 <span className="text-[#94A3B8] tracking-widest text-base">
                   Rs. ••••••••
                 </span>
               )}
             </h3>
-            <p className="text-[11px] text-[#D97706] mt-0.5 font-medium">
-              {data.metrics?.postDatedChequesPending?.count ?? 0} Pending
-              Cheques Cleared Soon
+            <p className="text-[11px] text-[#DC2626] mt-0.5 font-medium">
+              ● Current Month
             </p>
           </div>
         </div>

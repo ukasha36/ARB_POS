@@ -118,8 +118,28 @@ class ReportRepository extends BaseRepository {
     }
     totalBank = Math.round(totalBank * 100) / 100;
 
+    // Current-month expense: EXPENSE debit − credit for POSTED entries
+    const now = new Date();
+    const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const monthEnd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+    const monthlyExpenseRow = db.prepare(`
+      SELECT
+        COALESCE(SUM(CASE WHEN ll.type = 'debit'  THEN ll.amount ELSE 0 END), 0) -
+        COALESCE(SUM(CASE WHEN ll.type = 'credit' THEN ll.amount ELSE 0 END), 0) as monthly_expense
+      FROM accounts a
+      JOIN ledger_lines ll ON a.id = ll.account_id
+      JOIN master_entries me ON ll.entry_id = me.id
+      WHERE a.account_type = 'EXPENSE'
+        AND a.code NOT IN ('5001', '5003')
+        AND me.status = 'POSTED'
+        AND me.date >= ? AND me.date <= ?
+    `).get(monthStart, monthEnd);
+    const monthlyExpenses = Math.round(Number(monthlyExpenseRow?.monthly_expense || 0) * 100) / 100;
+
     // Today's summary aggregations (using local server date)
-    const today = new Date().toISOString().split('T')[0];
+    const today = now.toISOString().split('T')[0];
 
     const todaySalesRow = db.prepare(`
       SELECT COALESCE(SUM(ll.amount), 0.00) as total_sales
@@ -186,10 +206,7 @@ class ReportRepository extends BaseRepository {
       accountsPayable: totalPayables,
       cashInHand: totalCash,
       bankBalance: totalBank,
-      postDatedChequesPending: {
-        count: 0,
-        amount: 0.00,
-      },
+      monthlyExpenses,
       today: {
         date: today,
         netSales: Math.round((Number(todaySalesRow.total_sales || 0) - Number(todayReturnsRow.total_returns || 0)) * 100) / 100,
@@ -259,31 +276,88 @@ class ReportRepository extends BaseRepository {
     sql += ' ORDER BY me.date ASC, me.id ASC, ll.id ASC';
     const rows = db.prepare(sql).all(...params);
 
-    // Compute running balance
+    // Compute running balance over filtered rows
     let runningBalance = 0.00;
     const records = rows.map((r) => {
-      const debit = r.line_type === 'debit' ? Number(r.amount) : 0.00;
+      const debit  = r.line_type === 'debit'  ? Number(r.amount) : 0.00;
       const credit = r.line_type === 'credit' ? Number(r.amount) : 0.00;
-
-      // Dr is positive, Cr is negative for general ledger running delta
       runningBalance += (debit - credit);
       runningBalance = Math.round(runningBalance * 100) / 100;
-
-      return {
-        ...r,
-        debit,
-        credit,
-        running_balance: runningBalance,
-      };
+      return { ...r, debit, credit, running_balance: runningBalance };
     });
 
-    const totalDebit = records.reduce((sum, r) => sum + r.debit, 0);
-    const totalCredit = records.reduce((sum, r) => sum + r.credit, 0);
+    // Filtered totals — only the displayed rows (may be one-sided when account filter active)
+    const filteredTotalDebit  = Math.round(records.reduce((s, r) => s + r.debit,  0) * 100) / 100;
+    const filteredTotalCredit = Math.round(records.reduce((s, r) => s + r.credit, 0) * 100) / 100;
+
+    // -------------------------------------------------------------------
+    // Double-entry integrity: check COMPLETE journal for every entry_id
+    // visible in the filtered result — ignoring account/type filter so that
+    // filtering by e.g. EXPENSE does not falsely flag the transaction as
+    // unbalanced just because the Cash/Bank credit is not in the filtered view.
+    // -------------------------------------------------------------------
+    const isAccountFiltered = !!(accountId || accountType);
+    const entryIds = [...new Set(records.map((r) => r.entry_id))];
+
+    let fullTransactionDebit  = filteredTotalDebit;
+    let fullTransactionCredit = filteredTotalCredit;
+    let unbalancedEntryCount  = 0;
+    const unbalancedRefs      = [];
+
+    if (entryIds.length > 0) {
+      const placeholders = entryIds.map(() => '?').join(',');
+
+      // One aggregate query — no N+1
+      const fullTotalsRow = db.prepare(`
+        SELECT
+          COALESCE(SUM(CASE WHEN ll.type = 'debit'  THEN ll.amount ELSE 0 END), 0) as full_debit,
+          COALESCE(SUM(CASE WHEN ll.type = 'credit' THEN ll.amount ELSE 0 END), 0) as full_credit
+        FROM ledger_lines ll
+        WHERE ll.entry_id IN (${placeholders})
+      `).get(...entryIds);
+
+      fullTransactionDebit  = Math.round(Number(fullTotalsRow?.full_debit  || 0) * 100) / 100;
+      fullTransactionCredit = Math.round(Number(fullTotalsRow?.full_credit || 0) * 100) / 100;
+
+      // Per-entry balance — one grouped query to detect genuinely corrupt entries
+      const perEntryRows = db.prepare(`
+        SELECT
+          me.id            as entry_id,
+          me.reference_no,
+          COALESCE(SUM(CASE WHEN ll.type = 'debit'  THEN ll.amount ELSE 0 END), 0) as entry_debit,
+          COALESCE(SUM(CASE WHEN ll.type = 'credit' THEN ll.amount ELSE 0 END), 0) as entry_credit
+        FROM ledger_lines ll
+        JOIN master_entries me ON me.id = ll.entry_id
+        WHERE ll.entry_id IN (${placeholders})
+        GROUP BY me.id, me.reference_no
+      `).all(...entryIds);
+
+      for (const e of perEntryRows) {
+        const dr = Math.round(Number(e.entry_debit)  * 100);
+        const cr = Math.round(Number(e.entry_credit) * 100);
+        if (dr !== cr) {
+          unbalancedEntryCount++;
+          unbalancedRefs.push(e.reference_no || `Entry #${e.entry_id}`);
+        }
+      }
+    }
+
+    const transactionBalance = unbalancedEntryCount === 0 ? 'BALANCED' : 'UNBALANCED';
 
     return {
       records,
-      totalDebit: Math.round(totalDebit * 100) / 100,
-      totalCredit: Math.round(totalCredit * 100) / 100,
+      // Filtered view totals (only displayed rows — may be one-sided with account filter)
+      totalDebit:  filteredTotalDebit,
+      totalCredit: filteredTotalCredit,
+      filteredTotalDebit,
+      filteredTotalCredit,
+      // Complete-transaction integrity (all lines for these entry_ids)
+      fullTransactionDebit,
+      fullTransactionCredit,
+      transactionBalance,
+      unbalancedEntryCount,
+      unbalancedRefs,
+      isAccountFiltered,
     };
   }
 
@@ -1099,7 +1173,9 @@ class ReportRepository extends BaseRepository {
       FROM accounts a
       JOIN ledger_lines ll ON a.id = ll.account_id
       JOIN master_entries me ON ll.entry_id = me.id
-      WHERE a.account_type = 'EXPENSE' AND me.status = 'POSTED'
+      WHERE a.account_type = 'EXPENSE'
+        AND a.code NOT IN ('5001', '5003')
+        AND me.status = 'POSTED'
     `;
     const expenseParams = [];
     if (dateFrom) {
@@ -1164,7 +1240,7 @@ class ReportRepository extends BaseRepository {
     const effectiveDateFrom = dateFrom || defaultFrom;
     const effectiveDateTo = dateTo || defaultTo;
 
-    const sql = `
+    const ledgerSql = `
       SELECT 
         strftime('%Y-%m', me.date) as month,
         COALESCE(SUM(CASE 
@@ -1178,8 +1254,8 @@ class ReportRepository extends BaseRepository {
           ELSE 0 
         END), 0.0) as pur_amount,
         COALESCE(SUM(CASE 
-          WHEN a.account_type = 'EXPENSE' AND ll.type = 'debit' THEN ll.amount 
-          WHEN a.account_type = 'EXPENSE' AND ll.type = 'credit' THEN -ll.amount 
+          WHEN a.account_type = 'EXPENSE' AND a.code NOT IN ('5001', '5003') AND ll.type = 'debit' THEN ll.amount 
+          WHEN a.account_type = 'EXPENSE' AND a.code NOT IN ('5001', '5003') AND ll.type = 'credit' THEN -ll.amount 
           ELSE 0 
         END), 0.0) as expense,
         COALESCE(SUM(CASE 
@@ -1195,29 +1271,78 @@ class ReportRepository extends BaseRepository {
       ORDER BY month ASC
     `;
 
-    const rawRows = db.prepare(sql).all(effectiveDateFrom, effectiveDateTo);
+    const rawRows = db.prepare(ledgerSql).all(effectiveDateFrom, effectiveDateTo);
+
+    // Authoritative COGS per month from inventory_transactions
+    // (same source as getProfitLossStatement — single source of truth)
+    const cogsSoldByMonth = db.prepare(`
+      SELECT
+        strftime('%Y-%m', me.date) as month,
+        COALESCE(SUM(it.total_cost), 0.0) as cogs_sold
+      FROM master_entries me
+      JOIN inventory_transactions it ON me.id = it.entry_id
+      WHERE me.entry_type = 'SALE' AND me.status = 'POSTED'
+        AND it.transaction_type = 'SALE'
+        AND me.date >= ? AND me.date <= ?
+      GROUP BY strftime('%Y-%m', me.date)
+    `).all(effectiveDateFrom, effectiveDateTo);
+
+    const cogsReturnedByMonth = db.prepare(`
+      SELECT
+        strftime('%Y-%m', me.date) as month,
+        COALESCE(SUM(it.total_cost), 0.0) as cogs_returned
+      FROM master_entries me
+      JOIN inventory_transactions it ON me.id = it.entry_id
+      WHERE me.entry_type = 'SALES_RETURN' AND me.status = 'POSTED'
+        AND it.transaction_type = 'SALES_RETURN'
+        AND me.date >= ? AND me.date <= ?
+      GROUP BY strftime('%Y-%m', me.date)
+    `).all(effectiveDateFrom, effectiveDateTo);
+
+    // Build month-keyed lookup maps
+    const cogsSoldMap = {};
+    for (const r of cogsSoldByMonth) cogsSoldMap[r.month] = Number(r.cogs_sold || 0);
+    const cogsReturnedMap = {};
+    for (const r of cogsReturnedByMonth) cogsReturnedMap[r.month] = Number(r.cogs_returned || 0);
+
+    // Union of all months with any activity
+    const allMonths = new Set([
+      ...rawRows.map((r) => r.month),
+      ...cogsSoldByMonth.map((r) => r.month),
+      ...cogsReturnedByMonth.map((r) => r.month),
+    ]);
+    const ledgerMap = {};
+    for (const r of rawRows) ledgerMap[r.month] = r;
 
     const rows = [];
-    for (const r of rawRows) {
-      const saleAmount = Math.round(Number(r.sale_amount || 0) * 100) / 100;
-      const purAmount = Math.round(Number(r.pur_amount || 0) * 100) / 100;
-      const expense = Math.round(Number(r.expense || 0) * 100) / 100;
-      const otherIncome = Math.round(Number(r.other_income || 0) * 100) / 100;
+    for (const month of [...allMonths].sort()) {
+      const ledger = ledgerMap[month] || {};
+      const saleAmount  = Math.round(Number(ledger.sale_amount  || 0) * 100) / 100;
+      const purAmount   = Math.round(Number(ledger.pur_amount   || 0) * 100) / 100;
+      const expense     = Math.round(Number(ledger.expense      || 0) * 100) / 100;
+      const otherIncome = Math.round(Number(ledger.other_income || 0) * 100) / 100;
 
-      // Skip months with all zeros
-      if (saleAmount === 0 && purAmount === 0 && expense === 0 && otherIncome === 0) {
+      // Authoritative COGS from inventory_transactions.total_cost
+      const cogsSold     = Math.round((cogsSoldMap[month]     || 0) * 100) / 100;
+      const cogsReturned = Math.round((cogsReturnedMap[month] || 0) * 100) / 100;
+      const cogs         = Math.round((cogsSold - cogsReturned) * 100) / 100;
+
+      // Skip completely empty months
+      if (saleAmount === 0 && purAmount === 0 && expense === 0 && otherIncome === 0 && cogs === 0) {
         continue;
       }
 
-      const grossPL = Math.round((saleAmount - purAmount) * 100) / 100;
-      const pct = saleAmount > 0 ? Math.round((grossPL / saleAmount * 100) * 100) / 100 : 0;
-      const netPL = Math.round((grossPL - expense) * 100) / 100;
+      // FIXED: Gross Profit = Net Sales - COGS  (NOT sales - purchases)
+      const grossPL = Math.round((saleAmount - cogs) * 100) / 100;
+      const pct     = saleAmount > 0 ? Math.round((grossPL / saleAmount * 100) * 100) / 100 : 0;
+      const netPL   = Math.round((grossPL - expense) * 100) / 100;
       const totalPL = Math.round((netPL + otherIncome) * 100) / 100;
 
       rows.push({
-        month: r.month,
+        month,
         saleAmount,
-        purAmount,
+        purAmount,   // informational — shown in UI but NOT used to compute profit
+        cogs,
         grossPL,
         pct,
         expense,
@@ -1229,6 +1354,7 @@ class ReportRepository extends BaseRepository {
 
     let totalSale = 0;
     let totalPur = 0;
+    let totalCogs = 0;
     let totalGross = 0;
     let totalExpense = 0;
     let totalNet = 0;
@@ -1236,38 +1362,41 @@ class ReportRepository extends BaseRepository {
     let totalPL = 0;
 
     for (const row of rows) {
-      totalSale += row.saleAmount;
-      totalPur += row.purAmount;
-      totalGross += row.grossPL;
-      totalExpense += row.expense;
-      totalNet += row.netPL;
+      totalSale        += row.saleAmount;
+      totalPur         += row.purAmount;
+      totalCogs        += row.cogs;
+      totalGross       += row.grossPL;
+      totalExpense     += row.expense;
+      totalNet         += row.netPL;
       totalOtherIncome += row.otherIncome;
-      totalPL += row.totalPL;
+      totalPL          += row.totalPL;
     }
 
-    totalSale = Math.round(totalSale * 100) / 100;
-    totalPur = Math.round(totalPur * 100) / 100;
-    totalGross = Math.round(totalGross * 100) / 100;
-    totalExpense = Math.round(totalExpense * 100) / 100;
-    totalNet = Math.round(totalNet * 100) / 100;
+    totalSale        = Math.round(totalSale * 100) / 100;
+    totalPur         = Math.round(totalPur * 100) / 100;
+    totalCogs        = Math.round(totalCogs * 100) / 100;
+    totalGross       = Math.round(totalGross * 100) / 100;
+    totalExpense     = Math.round(totalExpense * 100) / 100;
+    totalNet         = Math.round(totalNet * 100) / 100;
     totalOtherIncome = Math.round(totalOtherIncome * 100) / 100;
-    totalPL = Math.round(totalPL * 100) / 100;
-    const totalPct = totalSale > 0 ? Math.round((totalGross / totalSale * 100) * 100) / 100 : 0;
+    totalPL          = Math.round(totalPL * 100) / 100;
+    const totalPct   = totalSale > 0 ? Math.round((totalGross / totalSale * 100) * 100) / 100 : 0;
 
     const total = {
-      saleAmount: totalSale,
-      purAmount: totalPur,
-      grossPL: totalGross,
-      pct: totalPct,
-      expense: totalExpense,
-      netPL: totalNet,
+      saleAmount:  totalSale,
+      purAmount:   totalPur,
+      cogs:        totalCogs,
+      grossPL:     totalGross,
+      pct:         totalPct,
+      expense:     totalExpense,
+      netPL:       totalNet,
       otherIncome: totalOtherIncome,
-      totalPL: totalPL,
+      totalPL:     totalPL,
     };
 
     return {
       dateFrom: effectiveDateFrom,
-      dateTo: effectiveDateTo,
+      dateTo:   effectiveDateTo,
       rows,
       total,
     };

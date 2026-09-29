@@ -148,8 +148,11 @@ export function ProfitReportPage() {
                 <th className="px-3 py-2 font-bold text-[#475569] text-[11px] uppercase tracking-wider border-r border-[#E2E8F0] text-right">
                   Sale Amount
                 </th>
-                <th className="px-3 py-2 font-bold text-[#475569] text-[11px] uppercase tracking-wider border-r border-[#E2E8F0] text-right">
+                <th className="px-3 py-2 font-bold text-[#475569] text-[11px] uppercase tracking-wider border-r border-[#E2E8F0] text-right" title="Total purchase invoices (informational only — not used in profit calculation)">
                   Pur Amount
+                </th>
+                <th className="px-3 py-2 font-bold text-[#475569] text-[11px] uppercase tracking-wider border-r border-[#E2E8F0] text-right" title="Cost of Goods Sold from inventory transactions">
+                  COGS
                 </th>
                 <th className="px-3 py-2 font-bold text-[#475569] text-[11px] uppercase tracking-wider border-r border-[#E2E8F0] text-right">
                   Gross P&amp;L
@@ -174,7 +177,7 @@ export function ProfitReportPage() {
             <tbody className="divide-y divide-[#E2E8F0]">
               {loading ? (
                 <tr>
-                  <td colSpan={10} className="px-3 py-8 text-center text-[#94A3B8]">
+                  <td colSpan={11} className="px-3 py-8 text-center text-[#94A3B8]">
                     Loading P&amp;L data...
                   </td>
                 </tr>
@@ -190,8 +193,11 @@ export function ProfitReportPage() {
                     <td className="px-3 py-2 border-r border-[#E2E8F0] text-right font-mono font-semibold text-[#0F172A]">
                       {formatCurrency(row.saleAmount)}
                     </td>
-                    <td className="px-3 py-2 border-r border-[#E2E8F0] text-right font-mono font-semibold text-[#0F172A]">
+                    <td className="px-3 py-2 border-r border-[#E2E8F0] text-right font-mono text-[#64748B]" title="Purchase invoices — informational">
                       {formatCurrency(row.purAmount)}
+                    </td>
+                    <td className="px-3 py-2 border-r border-[#E2E8F0] text-right font-mono font-semibold text-[#7C3AED]">
+                      {formatCurrency(row.cogs ?? 0)}
                     </td>
                     <td className={`px-3 py-2 border-r border-[#E2E8F0] text-right font-mono font-semibold ${row.grossPL < 0 ? 'text-[#DC2626]' : 'text-[#166534]'}`}>
                       {formatCurrency(row.grossPL)}
@@ -215,7 +221,7 @@ export function ProfitReportPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={10} className="px-3 py-8 text-center text-[#94A3B8]">
+                  <td colSpan={11} className="px-3 py-8 text-center text-[#94A3B8]">
                     No transactions found for the selected period.
                   </td>
                 </tr>
@@ -233,8 +239,11 @@ export function ProfitReportPage() {
                 <td className="px-3 py-2 border-r border-[#E2E8F0] text-right font-mono text-[#0F172A]">
                   {formatCurrency(total.saleAmount || 0)}
                 </td>
-                <td className="px-3 py-2 border-r border-[#E2E8F0] text-right font-mono text-[#0F172A]">
+                <td className="px-3 py-2 border-r border-[#E2E8F0] text-right font-mono text-[#64748B]" title="Purchase invoices — informational">
                   {formatCurrency(total.purAmount || 0)}
+                </td>
+                <td className="px-3 py-2 border-r border-[#E2E8F0] text-right font-mono text-[#7C3AED] font-bold">
+                  {formatCurrency(total.cogs || 0)}
                 </td>
                 <td className={`px-3 py-2 border-r border-[#E2E8F0] text-right font-mono ${(total.grossPL || 0) < 0 ? 'text-[#DC2626]' : 'text-[#166534]'}`}>
                   {formatCurrency(total.grossPL || 0)}

@@ -471,6 +471,21 @@ function runMigrations() {
     ensureShort.run("EXPENSE", "5002");
     ensureShort.run("COGS", "5003");
 
+    // CRITICAL: Force-correct account_type for system accounts.
+    // INSERT OR IGNORE above silently skips existing rows, so if any of these
+    // accounts were previously created with a wrong account_type (e.g., 5003 as
+    // 'EXPENSE' instead of 'COGS'), the EXPENSE queries will pick up COGS debit
+    // lines and massively inflate the expense total. Always enforce the canonical
+    // type regardless of what was stored before.
+    db.prepare(`UPDATE accounts SET account_type = 'CASH'      WHERE code = '1001'`).run();
+    db.prepare(`UPDATE accounts SET account_type = 'BANK'      WHERE code = '1002'`).run();
+    db.prepare(`UPDATE accounts SET account_type = 'CUSTOMER'  WHERE code = '1101'`).run();
+    db.prepare(`UPDATE accounts SET account_type = 'SUPPLIER'  WHERE code = '2001'`).run();
+    db.prepare(`UPDATE accounts SET account_type = 'REVENUE'   WHERE code = '4001'`).run();
+    db.prepare(`UPDATE accounts SET account_type = 'PURCHASES' WHERE code = '5001'`).run();
+    db.prepare(`UPDATE accounts SET account_type = 'EXPENSE'   WHERE code = '5002'`).run();
+    db.prepare(`UPDATE accounts SET account_type = 'COGS'      WHERE code = '5003'`).run();
+
     // ------------------------------------------------------------------
     // 13. NO sample inventory items
     // ------------------------------------------------------------------

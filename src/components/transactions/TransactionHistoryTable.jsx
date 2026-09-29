@@ -49,6 +49,7 @@ export function TransactionHistoryTable({
             <th className="px-2 py-1.5 font-bold text-[#475569] uppercase">Date</th>
             <th className="px-2 py-1.5 font-bold text-[#475569] uppercase">Type</th>
             <th className="px-2 py-1.5 font-bold text-[#475569] uppercase">Account</th>
+            <th className="px-2 py-1.5 font-bold text-[#475569] uppercase">Item</th>
             <th className="px-2 py-1.5 font-bold text-[#475569] uppercase">Ref #</th>
             <th className="px-2 py-1.5 font-bold text-[#475569] uppercase text-right">Amount (Rs.)</th>
             <th className="px-2 py-1.5 font-bold text-[#475569] uppercase">Status</th>
@@ -72,6 +73,9 @@ export function TransactionHistoryTable({
                   </span>
                 </td>
                 <td className="px-2 py-1 font-mono text-[#0F172A]">{accountName || '—'}</td>
+                <td className="px-2 py-1 text-[#0F172A] max-w-[160px] truncate" title={tx?.item_names || ''}>
+                  {tx?.item_names || '—'}
+                </td>
                 <td className="px-2 py-1 font-mono text-[#0F172A]">{safeStr(tx?.reference_no, '—')}</td>
                 <td className="px-2 py-1 text-right font-mono font-bold text-[#2563EB]">
                   {formatCurrency(amount)}
@@ -79,8 +83,8 @@ export function TransactionHistoryTable({
                 <td className="px-2 py-1">
                   <span
                     className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${isVoid
-                        ? 'bg-[#FEF2F2] text-[#DC2626] border border-[#FCA5A5]'
-                        : 'bg-[#DCFCE7] text-[#166534] border border-[#86EFAC]'
+                      ? 'bg-[#FEF2F2] text-[#DC2626] border border-[#FCA5A5]'
+                      : 'bg-[#DCFCE7] text-[#166534] border border-[#86EFAC]'
                       }`}
                   >
                     {safeStr(tx?.status, 'POSTED')}

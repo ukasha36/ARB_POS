@@ -373,7 +373,16 @@ class LedgerRepository extends BaseRepository {
         (SELECT a_cb.id FROM ledger_lines ll_cb
          JOIN accounts a_cb ON ll_cb.account_id = a_cb.id
          WHERE ll_cb.entry_id = me.id AND a_cb.account_type IN ('CASH','BANK')
-         LIMIT 1) as payment_account_id
+         LIMIT 1) as payment_account_id,
+        (SELECT GROUP_CONCAT(i_sub.iname, ', ')
+         FROM (
+           SELECT DISTINCT COALESCE(i2.name, '') as iname
+           FROM inventory_transactions it2
+           JOIN items i2 ON it2.item_id = i2.id
+           WHERE it2.entry_id = me.id
+           ORDER BY it2.id ASC
+         ) i_sub
+        ) as item_names
       FROM master_entries me
       WHERE 1=1
       `;
@@ -428,6 +437,7 @@ class LedgerRepository extends BaseRepository {
         expense_account_id: r.expense_account_id || null,
         payment_account_name: r.payment_account_name || null,
         payment_account_id: r.payment_account_id || null,
+        item_names: r.item_names || null,
       }));
       }
    }
