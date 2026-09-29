@@ -46,14 +46,13 @@ export function TransactionHistoryTable({
       <table className="w-full text-left text-[10px] border-collapse">
         <thead className="bg-[#F8FAFC] border-b border-[#E2E8F0]">
           <tr>
-            <th className="px-2 py-1.5 font-bold text-[#475569] uppercase">Date</th>
-            <th className="px-2 py-1.5 font-bold text-[#475569] uppercase">Type</th>
-            <th className="px-2 py-1.5 font-bold text-[#475569] uppercase">Account</th>
-            <th className="px-2 py-1.5 font-bold text-[#475569] uppercase">Item</th>
-            <th className="px-2 py-1.5 font-bold text-[#475569] uppercase">Ref #</th>
-            <th className="px-2 py-1.5 font-bold text-[#475569] uppercase text-right">Amount (Rs.)</th>
-            <th className="px-2 py-1.5 font-bold text-[#475569] uppercase">Status</th>
-            <th className="px-2 py-1.5 font-bold text-[#475569] uppercase text-center w-20">Actions</th>
+            <th className="px-2 py-1.5  max-w-[100px] font-bold text-[#475569] uppercase">Date</th>
+            <th className="px-2 py-1.5 font-bold text-[#475569]  max-w-[70px] uppercase">Type</th>
+            <th className="px-2 py-1.5 font-bold text-[#475569]  max-w-[70px] uppercase">Account</th>
+            <th className="px-2 py-1.5 font-bold text-[#475569] max-w-[150px]  uppercase">Item</th>
+            <th className="px-2 py-1.5 font-bold text-[#475569] max-w-[100px] uppercase">Ref #</th>
+            <th className="px-2 py-1.5 font-bold text-[#475569] text-left   max-w-[100px] uppercase ">Amount</th>
+            <th className="px-2 py-1.5 font-bold text-[#475569] max-w-[100px] uppercase text-center w-20">Actions</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-[#E2E8F0]">
@@ -65,41 +64,32 @@ export function TransactionHistoryTable({
             const amount = resolveAmount(tx);
             const accountName = resolveAccountName(tx);
             return (
-              <tr key={safeId(tx?.entry_id) || `tx-${index}`} className={`hover:bg-[#F8FAFC] ${isVoid ? 'opacity-60' : ''}`}>
+              <tr key={safeId(tx?.entry_id) || `tx-${index}`} className={`hover:bg-[#F8FAFC] ${isVoid ? 'opacity-60' : ''} pt-3   `}>
                 <td className="px-2 py-1 font-mono text-[#475569]">{safeStr(tx?.date, '—')}</td>
                 <td className="px-2 py-1">
-                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#EFF6FF] text-[#2563EB] border border-[#BFDBFE]">
+                  <span className="px-1.5 py-0.5 rounded text-[10px] max-w-[70px] font-bold text-[#2563EB] ">
                     {entryTypeLabel(safeStr(tx?.entry_type))}
                   </span>
                 </td>
-                <td className="px-2 py-1 font-mono text-[#0F172A]">{accountName || '—'}</td>
-                <td className="px-2 py-1 text-[#0F172A] max-w-[160px] truncate" title={tx?.item_names || ''}>
+                <td className="px-2 py-1 font-mono text-[10px] max-w-[70px] font-bold text-[#0F172A]">{accountName || '—'}</td>
+                <td className="px-2 py-1 text-[#0F172A] max-w-[150px] text-[10px] font-bold  truncate" title={tx?.item_names || ''}>
                   {tx?.item_names || '—'}
                 </td>
                 <td className="px-2 py-1 font-mono text-[#0F172A]">{safeStr(tx?.reference_no, '—')}</td>
-                <td className="px-2 py-1 text-right font-mono font-bold text-[#2563EB]">
+                <td className="px-2 py-1   font-mono text-[11px] max-w-[100px]   font-bold text-[#2563EB]">
                   {formatCurrency(amount)}
                 </td>
-                <td className="px-2 py-1">
-                  <span
-                    className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${isVoid
-                      ? 'bg-[#FEF2F2] text-[#DC2626] border border-[#FCA5A5]'
-                      : 'bg-[#DCFCE7] text-[#166534] border border-[#86EFAC]'
-                      }`}
-                  >
-                    {safeStr(tx?.status, 'POSTED')}
-                  </span>
-                </td>
+
                 <td className="px-2 py-1 text-center">
-                  <div className="flex items-center justify-center gap-0.5">
+                  <div className="flex items-center justify-center max-w-[200px] gap-3">
                     {!isVoid && onEdit && (
                       <button
                         type="button"
                         onClick={() => tx && onEdit(tx)}
-                        className="text-[#2563EB] hover:bg-[#EFF6FF] p-0.75 rounded"
+                        className="text-[#2563EB]   hover:bg-[#EFF6FF] p-0.75 rounded"
                         title="Edit"
                       >
-                        <Edit className="w-3 h-3" />
+                        <Edit className="w-4 h-4" />
                       </button>
                     )}
                     {!isVoid && onVoid && (
@@ -109,7 +99,7 @@ export function TransactionHistoryTable({
                         className="text-[#DC2626] hover:bg-[#FEF2F2] p-0.75 rounded"
                         title="Void"
                       >
-                        <Trash2 className="w-3 h-3" />
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     )}
                   </div>

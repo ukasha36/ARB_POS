@@ -185,7 +185,7 @@ export function AccountStatementPage() {
   return (
     <div className="space-y-3 select-none">
       {/* Header Banner */}
-      <div className="bg-white p-3 border border-[#E2E8F0] rounded-[4px]">
+      {/* <div className="bg-white p-3 border border-[#E2E8F0] rounded-[4px]">
         <div className="flex items-center gap-2">
           <div className="p-2 bg-[#EFF6FF] rounded text-[#2563EB]">
             <FileText className="w-5 h-5" />
@@ -201,7 +201,7 @@ export function AccountStatementPage() {
             </p>
           </div>
         </div>
-      </div>
+      </div> */}
 
       {/* Instructions Box */}
       <div className="bg-[#EFF6FF] border border-[#BFDBFE] rounded-[4px] p-3">

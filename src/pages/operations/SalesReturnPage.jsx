@@ -21,6 +21,7 @@ import {
 import {
   filterCustomerAccounts,
   filterRevenueAccounts,
+  filterCashBankAccounts,
 } from "../../utils/accountFilters";
 
 export function SalesReturnPage() {
@@ -28,12 +29,15 @@ export function SalesReturnPage() {
   const [items, setItems] = useState([]);
   const [salesRevenueAccountId, setSalesRevenueAccountId] = useState('');
   const [availableRevenueAccounts, setAvailableRevenueAccounts] = useState([]);
+  const [cashBankAccounts, setCashBankAccounts] = useState([]);
 
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [customerId, setCustomerId] = useState("");
   const [itemId, setItemId] = useState("");
   const [qty, setQty] = useState("1");
   const [returnAmount, setReturnAmount] = useState("");
+  const [refundAmount, setRefundAmount] = useState("0");
+  const [refundAccountId, setRefundAccountId] = useState("");
   const [reason, setReason] = useState("Customer product exchange / return");
   const [reference, setReference] = useState("");
 
@@ -62,10 +66,13 @@ export function SalesReturnPage() {
       if (accRes.success && accRes.data) {
         const custs = filterCustomerAccounts(accRes.data);
         const revenueAccounts = filterRevenueAccounts(accRes.data);
+        const cbAccounts = filterCashBankAccounts(accRes.data).filter((a) => a.status === "Active");
         setCustomers(custs);
         setAvailableRevenueAccounts(revenueAccounts);
+        setCashBankAccounts(cbAccounts);
         if (revenueAccounts.length) setSalesRevenueAccountId(safeId(revenueAccounts[0]?.id) || '');
         if (custs.length) setCustomerId(custs[0].id);
+        if (cbAccounts.length && !refundAccountId) setRefundAccountId(safeId(cbAccounts[0].id));
       }
 
       const itemRes = await api.items.list("");
@@ -101,9 +108,14 @@ export function SalesReturnPage() {
     }
   };
 
+  // Derived calculations for refund split
+  const numReturnAmount = Math.round(safeNum(parseFloat(returnAmount)) * 100) / 100;
+  const numRefund = Math.min(numReturnAmount, Math.max(0, Math.round(safeNum(parseFloat(refundAmount)) * 100) / 100));
+  const adjustedAgainstCustomer = Math.round((numReturnAmount - numRefund) * 100) / 100;
+
   const handlePostSalesReturn = async (e) => {
     e.preventDefault();
-    const numAmount = parseFloat(returnAmount);
+    const numAmount = numReturnAmount;
     const numQty = parseFloat(qty);
 
     if (!numAmount || numAmount <= 0 || !numQty || numQty <= 0) {
@@ -130,29 +142,56 @@ export function SalesReturnPage() {
       return;
     }
 
+    // Validate refund amount
+    if (numRefund < 0 || numRefund > numAmount) {
+      setStatus({
+        type: "error",
+        text: `Refund amount must be between 0 and ${formatCurrency(numAmount)}.`,
+      });
+      return;
+    }
+
+    if (numRefund > 0 && !refundAccountId) {
+      setStatus({
+        type: "error",
+        text: "Please select a Refund Account (Cash/Bank) for the refund.",
+      });
+      return;
+    }
+
     setPosting(true);
     setStatus(null);
 
     try {
-      // Debit: Sales Revenue Account (reduces revenue), Credit: Customer Account (reduces customer balance)
+      // Debit: Sales Revenue Account (reduces revenue)
+      const debit_lines = [
+        { account_id: parseInt(salesRevenueAccountId, 10), amount: numAmount },
+      ];
+
+      // Credit: split between customer account and cash/bank refund
+      const credit_lines = [];
+      const custCreditAmt = Math.round((numAmount - numRefund) * 100) / 100;
+      if (custCreditAmt > 0) {
+        credit_lines.push({ account_id: parseInt(customerId, 10), amount: custCreditAmt });
+      }
+      if (numRefund > 0) {
+        credit_lines.push({ account_id: parseInt(refundAccountId, 10), amount: numRefund });
+      }
+
       const transactionData = {
         entry_type: "SALES_RETURN",
         date,
         description: `Sales Return - ${reason}`,
         reference_no: reference || `SRET-${Date.now().toString().slice(-4)}`,
-        debit_lines: [
-          { account_id: parseInt(salesRevenueAccountId, 10), amount: numAmount },
-        ],
-        credit_lines: [
-          { account_id: parseInt(customerId, 10), amount: numAmount },
-        ],
+        debit_lines,
+        credit_lines,
         party_account_id: customerId ? parseInt(customerId, 10) : null,
         inventory_lines: [
           {
             item_id: parseInt(itemId, 10),
             transaction_type: "SALES_RETURN",
             qty: numQty,
-            unit_price: numAmount / numQty,
+            unit_price: Math.round((numAmount / numQty) * 100) / 100,
             total_price: numAmount,
           },
         ],
@@ -171,6 +210,8 @@ export function SalesReturnPage() {
         setEditingEntryId(null);
         setQty("1");
         setReference("");
+        setRefundAmount("0");
+        setRefundAccountId(cashBankAccounts.length ? safeId(cashBankAccounts[0].id) : "");
         loadMasterData();
         loadTransactions();
       } else {
@@ -201,16 +242,38 @@ export function SalesReturnPage() {
         setReference(safeStr(fullTx.reference_no));
         setReason(safeStr(fullTx.description));
 
-        const customerLine =
-          creditLines.find((l) => l.account_type === "CUSTOMER") ||
-          creditLines[0];
-        if (customerLine) setCustomerId(safeId(customerLine.account_id));
+        // Restore customer: prefer party_account_id, fall back to CUSTOMER credit line
+        if (fullTx.party_account_id) {
+          setCustomerId(safeId(fullTx.party_account_id));
+        } else {
+          const customerLine = creditLines.find((l) => l.account_type === "CUSTOMER");
+          if (customerLine) setCustomerId(safeId(customerLine.account_id));
+        }
 
+        // Restore returnAmount from SUM(inventory_lines.total_price)
         if (inventoryLines.length > 0) {
           const inv = inventoryLines[0];
           setItemId(safeId(inv.item_id));
           setQty(safeStr(safeNum(inv.qty, 1)));
-          setReturnAmount(safeStr(safeNum(inv.total_price)));
+          const totalReturn = inventoryLines.reduce((sum, il) => sum + safeNum(il.total_price), 0);
+          setReturnAmount(safeStr(Math.round(totalReturn * 100) / 100));
+        } else {
+          // No inventory lines — derive from max(debit sum, credit sum) excluding COGS/5003
+          const debitSum = (fullTx.debit_lines || []).filter((l) => l.account_type !== "COGS" && l.account_code !== "5003").reduce((s, l) => s + safeNum(l.amount), 0);
+          const creditSum = creditLines.filter((l) => l.account_type !== "COGS" && l.account_code !== "5003").reduce((s, l) => s + safeNum(l.amount), 0);
+          setReturnAmount(safeStr(Math.round(Math.max(debitSum, creditSum) * 100) / 100));
+        }
+
+        // Restore refund fields from CASH/BANK credit line
+        const cashBankLine = creditLines.find(
+          (l) => l.account_type === "CASH" || l.account_type === "BANK"
+        );
+        if (cashBankLine) {
+          setRefundAmount(safeStr(safeNum(cashBankLine.amount)));
+          setRefundAccountId(safeId(cashBankLine.account_id));
+        } else {
+          setRefundAmount("0");
+          setRefundAccountId(cashBankAccounts.length ? safeId(cashBankAccounts[0].id) : "");
         }
 
         setStatus({
@@ -254,6 +317,8 @@ export function SalesReturnPage() {
     setItemId('');
     setQty('1');
     setReturnAmount('');
+    setRefundAmount('0');
+    setRefundAccountId(cashBankAccounts.length ? safeId(cashBankAccounts[0].id) : '');
     setReason('Customer product exchange / return');
     setReference('');
     setStatus({ type: 'success', text: 'Form cleared. Ready for a new sales return.' });
@@ -261,8 +326,8 @@ export function SalesReturnPage() {
   };
 
   return (
-    <div className="space-y-4 max-w-2xl select-none">
-      <div className="bg-white p-3 border border-[#E2E8F0] rounded-[4px] flex items-center justify-between">
+    <div className="space-y-4 max-w-7xl select-none">
+      {/* <div className="bg-white p-3 border border-[#E2E8F0] rounded-[4px] flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="p-2 bg-[#EFF6FF] rounded text-[#2563EB]">
             <RotateCcw className="w-5 h-5" />
@@ -277,7 +342,7 @@ export function SalesReturnPage() {
             </p>
           </div>
         </div>
-      </div>
+      </div> */}
 
       {status && (
         <div
@@ -405,6 +470,59 @@ export function SalesReturnPage() {
             onChange={(e) => setReason(e.target.value)}
             className="w-full px-2.5 py-1.5 text-xs bg-white border border-[#CBD5E1] rounded-[3px]"
           />
+        </div>
+
+        {/* Cash/Bank Refund Section */}
+        <div className="bg-[#F8FAFC] p-3 border border-[#E2E8F0] rounded-[3px] space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[11px] font-bold text-[#475569] uppercase mb-1">
+                Cash/Bank Refunded to Customer (PKR)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={refundAmount}
+                onChange={(e) => setRefundAmount(e.target.value)}
+                className="w-full px-3 py-1.5 text-sm font-mono font-bold bg-white border border-[#CBD5E1] rounded-[3px]"
+              />
+              <p className="text-[10px] text-[#64748B] mt-0.5">
+                If the original sale was cash/paid, enter the full return amount here; otherwise the customer balance will go negative.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-[#475569] uppercase mb-1">
+                Refund Account
+              </label>
+              <select
+                value={refundAccountId}
+                onChange={(e) => setRefundAccountId(e.target.value)}
+                className="w-full px-2.5 py-1.5 text-xs bg-white border border-[#CBD5E1] rounded-[3px]"
+              >
+                {cashBankAccounts.map((cb) => (
+                  <option key={cb.id} value={cb.id}>
+                    {cb.title} ({cb.code})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Read-only breakdown */}
+          {numReturnAmount > 0 && (
+            <div className="bg-white p-2 border border-[#E2E8F0] rounded-[3px] grid grid-cols-2 gap-2 text-xs">
+              <div>
+                <span className="block text-[10px] uppercase font-bold text-[#64748B]">Adjusted against customer balance</span>
+                <span className="font-mono font-bold text-[#2563EB]">{formatCurrency(adjustedAgainstCustomer)}</span>
+              </div>
+              <div>
+                <span className="block text-[10px] uppercase font-bold text-[#16A34A]">Cash refunded</span>
+                <span className="font-mono font-bold text-[#16A34A]">{formatCurrency(numRefund)}</span>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="pt-2 flex justify-end gap-2">

@@ -211,7 +211,7 @@ export function GeneralLedgerPage() {
   return (
     <div className="space-y-3 select-none">
       {/* Header Banner */}
-      <div className="bg-white p-3 border border-[#E2E8F0] rounded-[4px]">
+      {/* <div className="bg-white p-3 border border-[#E2E8F0] rounded-[4px]">
         <div className="flex items-center gap-2">
           <div className="p-2 bg-[#EFF6FF] rounded text-[#2563EB]">
             <FileSpreadsheet className="w-5 h-5" />
@@ -226,7 +226,7 @@ export function GeneralLedgerPage() {
             </p>
           </div>
         </div>
-      </div>
+      </div> */}
 
       {/* Help Box */}
       <div className="bg-[#EFF6FF] border border-[#BFDBFE] rounded-[4px] p-3">
@@ -320,11 +320,10 @@ export function GeneralLedgerPage() {
           )}
           <div className="flex items-center gap-2">
             <span
-              className={`px-2 py-0.5 rounded text-xs font-bold ${
-                isBalanced
-                  ? "bg-[#DCFCE7] text-[#166534] border border-[#86EFAC]"
-                  : "bg-[#FEF2F2] text-[#991B1B] border border-[#FCA5A5]"
-              }`}
+              className={`px-2 py-0.5 rounded text-xs font-bold ${isBalanced
+                ? "bg-[#DCFCE7] text-[#166534] border border-[#86EFAC]"
+                : "bg-[#FEF2F2] text-[#991B1B] border border-[#FCA5A5]"
+                }`}
             >
               {isBalanced ? "BALANCED" : "UNBALANCED"}
             </span>

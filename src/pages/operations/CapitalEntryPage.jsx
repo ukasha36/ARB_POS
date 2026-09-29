@@ -420,11 +420,10 @@ export function CapitalEntryPage() {
       {/* Status Message */}
       {status && (
         <div
-          className={`p-3 rounded-[3px] text-xs font-semibold border flex items-center gap-2 ${
-            status.type === "success"
-              ? "bg-[#DCFCE7] text-[#166534] border-[#86EFAC]"
-              : "bg-[#FEF2F2] text-[#991B1B] border-[#FCA5A5]"
-          }`}
+          className={`p-3 rounded-[3px] text-xs font-semibold border flex items-center gap-2 ${status.type === "success"
+            ? "bg-[#DCFCE7] text-[#166534] border-[#86EFAC]"
+            : "bg-[#FEF2F2] text-[#991B1B] border-[#FCA5A5]"
+            }`}
         >
           {status.type === "success" ? (
             <CheckCircle2 className="w-4 h-4 text-[#16A34A]" />
@@ -443,11 +442,10 @@ export function CapitalEntryPage() {
             <button
               type="button"
               onClick={() => setActiveTab("investment")}
-              className={`flex-1 py-1.5 text-xs font-bold rounded-[3px] transition-colors flex items-center justify-center gap-1 ${
-                activeTab === "investment"
-                  ? "bg-[#2563EB] text-white"
-                  : "text-[#64748B] hover:bg-[#EFF6FF] hover:text-[#2563EB]"
-              }`}
+              className={`flex-1 py-1.5 text-xs font-bold rounded-[3px] transition-colors flex items-center justify-center gap-1 ${activeTab === "investment"
+                ? "bg-[#2563EB] text-white"
+                : "text-[#64748B] hover:bg-[#EFF6FF] hover:text-[#2563EB]"
+                }`}
             >
               <TrendingUp className="w-3 h-3" />
               Investment
@@ -455,11 +453,10 @@ export function CapitalEntryPage() {
             <button
               type="button"
               onClick={() => setActiveTab("withdrawal")}
-              className={`flex-1 py-1.5 text-xs font-bold rounded-[3px] transition-colors flex items-center justify-center gap-1 ${
-                activeTab === "withdrawal"
-                  ? "bg-[#DC2626] text-white"
-                  : "text-[#64748B] hover:bg-[#FEF2F2] hover:text-[#DC2626]"
-              }`}
+              className={`flex-1 py-1.5 text-xs font-bold rounded-[3px] transition-colors flex items-center justify-center gap-1 ${activeTab === "withdrawal"
+                ? "bg-[#DC2626] text-white"
+                : "text-[#64748B] hover:bg-[#FEF2F2] hover:text-[#DC2626]"
+                }`}
             >
               <TrendingDown className="w-3 h-3" />
               Withdrawal

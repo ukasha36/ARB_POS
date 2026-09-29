@@ -284,7 +284,7 @@ export function IncomingTransactionPage() {
       </div>
 
       {/* Info Box: Kab use karein */}
-      <div className="bg-[#EFF6FF] border border-[#BFDBFE] rounded-[4px] p-3">
+      {/* <div className="bg-[#EFF6FF] border border-[#BFDBFE] rounded-[4px] p-3">
         <p className="text-[11px] font-bold text-[#2563EB] mb-1">
           Kab use karein?
         </p>
@@ -296,7 +296,7 @@ export function IncomingTransactionPage() {
         <p className="text-[10px] text-[#64748B] mt-1 italic">
           Full cash sale counter pe ho to Sales screen use karein.
         </p>
-      </div>
+      </div> */}
 
       {status && (
         <div

@@ -227,7 +227,7 @@ export function CustomerLedgerPage() {
   return (
     <div className="space-y-3 select-none">
       {/* Header Banner */}
-      <div className="bg-white p-3 border border-[#E2E8F0] rounded-[4px] flex items-center justify-between">
+      {/* <div className="bg-white p-3 border border-[#E2E8F0] rounded-[4px] flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="p-2 bg-[#EFF6FF] rounded text-[#2563EB]">
             <Users className="w-5 h-5" />
@@ -249,7 +249,7 @@ export function CustomerLedgerPage() {
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           <span>Refresh</span>
         </button>
-      </div>
+      </div> */}
 
       {/* Customer Selection & Date Filter */}
       <form
@@ -324,13 +324,12 @@ export function CustomerLedgerPage() {
       {/* PDF Status Message */}
       {pdfStatus && (
         <div
-          className={`p-2.5 rounded-[3px] border text-xs ${
-            pdfStatus.type === 'error'
-              ? 'bg-[#FEF2F2] border-[#FECACA] text-[#991B1B]'
-              : pdfStatus.type === 'success'
+          className={`p-2.5 rounded-[3px] border text-xs ${pdfStatus.type === 'error'
+            ? 'bg-[#FEF2F2] border-[#FECACA] text-[#991B1B]'
+            : pdfStatus.type === 'success'
               ? 'bg-[#ECFDF5] border-[#BBF7D0] text-[#065F46]'
               : 'bg-[#EFF6FF] border-[#BFDBFE] text-[#1E40AF]'
-          }`}
+            }`}
         >
           {pdfStatus.message}
         </div>

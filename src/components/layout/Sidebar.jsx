@@ -56,8 +56,6 @@ export function Sidebar() {
           category: "SETUPS",
           icon: Users,
         },
-        // Area, Sub Area, and Salesmen setup screens simplified per client requirement.
-        // setup-area, setup-sub-area, and setup-salesmen navigation removed from sidebar.
         {
           id: "setup-firm-suppliers",
           title: "Suppliers",
@@ -83,6 +81,12 @@ export function Sidebar() {
       title: "DAILY OPERATIONS",
       items: [
         {
+          id: "ops-expense-entry",
+          title: "Expenses",
+          category: "DAILY OPERATIONS",
+          icon: DollarSign,
+        },
+        {
           id: "ops-capital-entry",
           title: "Capital Entry",
           category: "DAILY OPERATIONS",
@@ -95,17 +99,18 @@ export function Sidebar() {
           icon: ShoppingCart,
         },
         {
-          id: "ops-purchase-return",
-          title: "Purchase Return",
-          category: "DAILY OPERATIONS",
-          icon: RotateCcw,
-        },
-        {
           id: "ops-sales-billing",
           title: "Sales Entry",
           category: "DAILY OPERATIONS",
           icon: Calculator,
         },
+        {
+          id: "ops-purchase-return",
+          title: "Purchase Return",
+          category: "DAILY OPERATIONS",
+          icon: RotateCcw,
+        },
+
         {
           id: "ops-sales-return",
           title: "Sales Return",
@@ -124,12 +129,7 @@ export function Sidebar() {
           category: "DAILY OPERATIONS",
           icon: Receipt,
         },
-        {
-          id: "ops-expense-entry",
-          title: "Expenses",
-          category: "DAILY OPERATIONS",
-          icon: DollarSign,
-        },
+
         // {
         //   id: "ops-offer-list",
         //   title: "Offer List",
@@ -185,28 +185,30 @@ export function Sidebar() {
           icon: BarChart3,
         },
         {
-          id: "rep-purchase-return",
-          title: "Purchase Return",
-          category: "REPORTS",
-          icon: RotateCcw,
-        },
-        {
           id: "rep-sales",
           title: "Sales",
           category: "REPORTS",
           icon: PieChart,
         },
-        {
-          id: "rep-sales-return",
-          title: "Sales Return",
-          category: "REPORTS",
-          icon: RotateCcw,
-        },
+
         {
           id: "rep-stock-analytics",
           title: "Stock Analytics",
           category: "REPORTS",
           icon: BarChart3,
+        },
+        {
+          id: "rep-purchase-return",
+          title: "Purchase Return",
+          category: "REPORTS",
+          icon: RotateCcw,
+        },
+
+        {
+          id: "rep-sales-return",
+          title: "Sales Return",
+          category: "REPORTS",
+          icon: RotateCcw,
         },
       ],
     },
@@ -242,11 +244,10 @@ export function Sidebar() {
                 onClick={() =>
                   setActiveModule(section.id, section.title, section.category)
                 }
-                className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-[3px] font-semibold text-xs transition-colors ${
-                  isActive
-                    ? "bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE] shadow-2xs"
-                    : "text-[#334155] hover:bg-[#F8FAFC] hover:text-[#0F172A]"
-                }`}
+                className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-[3px] font-semibold text-xs transition-colors ${isActive
+                  ? "bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE] shadow-2xs"
+                  : "text-[#334155] hover:bg-[#F8FAFC] hover:text-[#0F172A]"
+                  }`}
               >
                 <Icon
                   className={`w-4 h-4 ${isActive ? "text-[#2563EB]" : "text-[#64748B]"}`}
@@ -288,11 +289,10 @@ export function Sidebar() {
                         onClick={() =>
                           setActiveModule(item.id, item.title, item.category)
                         }
-                        className={`w-full flex items-center gap-2 px-2 py-1 rounded-[3px] text-xs transition-colors ${
-                          isActive
-                            ? "bg-[#EFF6FF] text-[#1D4ED8] font-bold border-l-2 border-[#2563EB]"
-                            : "text-[#475569] hover:bg-[#F8FAFC] hover:text-[#0F172A]"
-                        }`}
+                        className={`w-full flex items-center gap-2 px-2 py-1 rounded-[3px] text-xs transition-colors ${isActive
+                          ? "bg-[#EFF6FF] text-[#1D4ED8] font-bold border-l-2 border-[#2563EB]"
+                          : "text-[#475569] hover:bg-[#F8FAFC] hover:text-[#0F172A]"
+                          }`}
                       >
                         <ItemIcon
                           className={`w-3.5 h-3.5 ${isActive ? "text-[#2563EB]" : "text-[#94A3B8]"}`}

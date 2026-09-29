@@ -344,18 +344,18 @@ export function PurchaseEntryPage() {
     setLineItems([
       firstItem
         ? {
-            item_id: firstItem.id,
-            qty: 1,
-            unit_price: firstItem.purchase_price || 0,
-            total: firstItem.purchase_price || 0,
-          }
+          item_id: firstItem.id,
+          qty: 1,
+          unit_price: firstItem.purchase_price || 0,
+          total: firstItem.purchase_price || 0,
+        }
         : { item_id: "", qty: 1, unit_price: 0, total: 0 },
     ]);
   };
 
   return (
     <div className="space-y-4 select-none">
-      <div className="bg-white p-3 border border-[#E2E8F0] rounded-[4px] flex items-center justify-between">
+      {/* <div className="bg-white p-3 border border-[#E2E8F0] rounded-[4px] flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="p-2 bg-[#EFF6FF] rounded text-[#2563EB]">
             <ShoppingCart className="w-5 h-5" />
@@ -370,15 +370,14 @@ export function PurchaseEntryPage() {
             </p>
           </div>
         </div>
-      </div>
+      </div> */}
 
       {status && (
         <div
-          className={`p-3 rounded-[3px] text-xs font-semibold border flex items-center gap-2 ${
-            status.type === "success"
-              ? "bg-[#DCFCE7] text-[#166534] border-[#86EFAC]"
-              : "bg-[#FEF2F2] text-[#991B1B] border-[#FCA5A5]"
-          }`}
+          className={`p-3 rounded-[3px] text-xs font-semibold border flex items-center gap-2 ${status.type === "success"
+            ? "bg-[#DCFCE7] text-[#166534] border-[#86EFAC]"
+            : "bg-[#FEF2F2] text-[#991B1B] border-[#FCA5A5]"
+            }`}
         >
           {status.type === "success" ? (
             <CheckCircle2 className="w-4 h-4 text-[#16A34A]" />
