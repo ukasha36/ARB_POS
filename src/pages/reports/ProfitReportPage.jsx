@@ -1,26 +1,40 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, RefreshCw, Printer, Info } from 'lucide-react';
+import { TrendingUp, RefreshCw, Printer } from 'lucide-react';
 import { api } from '../../services/api';
 import { formatCurrency } from '../../utils/formatters';
 
+const getCurrentMonthDates = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const lastDay = new Date(year, now.getMonth() + 1, 0).getDate();
+  return {
+    dateFrom: `${year}-${month}-01`,
+    dateTo: `${year}-${month}-${String(lastDay).padStart(2, '0')}`,
+  };
+};
+
 export function ProfitReportPage() {
-  const [data, setData] = useState(null);
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const initialDates = getCurrentMonthDates();
+  const [dateFrom, setDateFrom] = useState(initialDates.dateFrom);
+  const [dateTo, setDateTo] = useState(initialDates.dateTo);
+  const [data, setData] = useState({ rows: [], total: {} });
   const [loading, setLoading] = useState(false);
 
-  const loadReport = async () => {
+  const loadReport = async (overrideFrom, overrideTo) => {
     setLoading(true);
+    const from = overrideFrom !== undefined ? overrideFrom : dateFrom;
+    const to = overrideTo !== undefined ? overrideTo : dateTo;
     try {
-      const res = await api.reports.profitLoss({
-        dateFrom: dateFrom || undefined,
-        dateTo: dateTo || undefined,
+      const res = await api.reports.profitLossMonthWise({
+        dateFrom: from || undefined,
+        dateTo: to || undefined,
       });
       if (res.success && res.data) {
         setData(res.data);
       }
     } catch (err) {
-      console.error('Failed to load P&L report:', err);
+      console.error('Failed to load P&L month-wise report:', err);
     } finally {
       setLoading(false);
     }
@@ -36,23 +50,14 @@ export function ProfitReportPage() {
   };
 
   const handleResetFilters = () => {
-    setDateFrom('');
-    setDateTo('');
-    setTimeout(loadReport, 0);
+    const defaults = getCurrentMonthDates();
+    setDateFrom(defaults.dateFrom);
+    setDateTo(defaults.dateTo);
+    loadReport(defaults.dateFrom, defaults.dateTo);
   };
 
-  // Shorthand helpers — values always come from backend, never calculated here
-  const rev = data?.revenue || {};
-  const cogs = data?.costOfGoodsSold || {};
-  const opEx = data?.operatingExpenses || { items: [], totalExpenses: 0 };
-  const grossProfit = data?.grossProfit ?? 0;
-  const netProfit = data?.netProfit ?? 0;
-  const closingStock = data?.closingStockValuation ?? 0;
-
-  const grossProfitValue = Number(grossProfit) || 0;
-  const netProfitValue = Number(netProfit) || 0;
-  const isPositiveGP = grossProfitValue >= 0;
-  const isPositiveNP = netProfitValue >= 0;
+  const rows = data?.rows || [];
+  const total = data?.total || {};
 
   return (
     <div className="space-y-3 select-none">
@@ -64,10 +69,10 @@ export function ProfitReportPage() {
           </div>
           <div>
             <h2 className="text-xs font-bold text-[#0F172A] tracking-wider uppercase">
-              PROFIT &amp; LOSS STATEMENT
+              PROFIT &amp; LOSS MONTH WISE
             </h2>
             <p className="text-[11px] text-[#64748B]">
-              Income statement showing revenue, cost of goods sold, operating expenses and net profit
+              Criteria: Dated From <span className="font-semibold text-[#0F172A]">{data?.dateFrom || dateFrom}</span> To <span className="font-semibold text-[#0F172A]">{data?.dateTo || dateTo}</span>
             </p>
           </div>
         </div>
@@ -80,7 +85,7 @@ export function ProfitReportPage() {
             <span>Print</span>
           </button>
           <button
-            onClick={loadReport}
+            onClick={() => loadReport()}
             disabled={loading}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-[#EFF6FF] text-[#2563EB] border border-[#BFDBFE] hover:bg-[#DBEAFE] rounded-[3px] text-xs font-semibold"
           >
@@ -128,171 +133,132 @@ export function ProfitReportPage() {
         </button>
       </form>
 
-      {/* P&L Statement Body */}
-      {loading ? (
-        <div className="bg-white border border-[#E2E8F0] rounded-[4px] p-12 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-2 text-[#94A3B8]">
-            <RefreshCw className="w-6 h-6 animate-spin" />
-            <span className="text-xs">Loading P&amp;L statement...</span>
-          </div>
-        </div>
-      ) : !data ? (
-        <div className="bg-white border border-[#E2E8F0] rounded-[4px] p-12 flex items-center justify-center">
-          <span className="text-xs text-[#94A3B8]">No data available. Apply a date filter and refresh.</span>
-        </div>
-      ) : (
-        <div className="bg-white border border-[#E2E8F0] rounded-[4px] overflow-hidden">
-          <div className="max-w-2xl mx-auto p-6 space-y-0">
-
-            {/* ── REVENUE ─────────────────────────────────────────── */}
-            <div className="mb-1">
-              <div className="px-3 py-1.5 bg-[#F8FAFC] border-b border-[#E2E8F0]">
-                <span className="text-[10px] font-bold text-[#475569] uppercase tracking-widest">Revenue</span>
-              </div>
-              <div className="divide-y divide-[#F1F5F9]">
-                <PLRow label="Gross Sales" value={rev.grossSales} />
-                <PLRow label="Less: Sales Returns" value={rev.salesReturns} isDeduction />
-              </div>
-              <div className="flex items-center justify-between px-3 py-2 bg-[#EFF6FF] border-t border-[#BFDBFE]">
-                <span className="text-xs font-bold text-[#1E40AF]">Net Sales</span>
-                <span className="font-mono text-sm font-bold text-[#2563EB]">
-                  {formatCurrency(rev.netSales)}
-                </span>
-              </div>
-            </div>
-
-            <div className="border-t border-[#E2E8F0] my-3" />
-
-            {/* ── COST OF GOODS SOLD ───────────────────────────────── */}
-            <div className="mb-1">
-              <div className="px-3 py-1.5 bg-[#F8FAFC] border-b border-[#E2E8F0]">
-                <span className="text-[10px] font-bold text-[#475569] uppercase tracking-widest">Cost of Goods Sold</span>
-              </div>
-              <div className="divide-y divide-[#F1F5F9]">
-                <PLRow label="Cost of Goods Sold" value={cogs.cogsSold} />
-                <PLRow label="Less: COGS Returned" value={cogs.cogsReturned} isDeduction />
-              </div>
-              <div className="flex items-center justify-between px-3 py-2 bg-[#FFF7ED] border-t border-[#FED7AA]">
-                <span className="text-xs font-bold text-[#9A3412]">Net COGS</span>
-                <span className="font-mono text-sm font-bold text-[#C2410C]">
-                  {formatCurrency(cogs.cogs)}
-                </span>
-              </div>
-            </div>
-
-            <div className="border-t border-[#E2E8F0] my-3" />
-
-            {/* ── GROSS PROFIT ─────────────────────────────────────── */}
-            <div
-              className={`flex items-center justify-between px-3 py-3 rounded-[3px] border ${
-                isPositiveGP
-                  ? 'bg-[#F0FDF4] border-[#BBF7D0]'
-                  : 'bg-[#FFF1F2] border-[#FECDD3]'
-              }`}
-            >
-              <span className="text-xs font-bold text-[#0F172A] uppercase tracking-wider">
-                {isPositiveGP ? 'Gross Profit' : 'Gross Loss'}
-              </span>
-              <span
-                className={`font-mono text-base font-bold ${
-                  isPositiveGP ? 'text-[#16A34A]' : 'text-[#DC2626]'
-                }`}
-              >
-                {formatCurrency(Math.abs(grossProfitValue))}
-              </span>
-            </div>
-
-            <div className="border-t border-[#E2E8F0] my-3" />
-
-            {/* ── OPERATING EXPENSES ───────────────────────────────── */}
-            <div className="mb-1">
-              <div className="px-3 py-1.5 bg-[#F8FAFC] border-b border-[#E2E8F0]">
-                <span className="text-[10px] font-bold text-[#475569] uppercase tracking-widest">Operating Expenses</span>
-              </div>
-              {opEx.items && opEx.items.length > 0 ? (
-                <div className="divide-y divide-[#F1F5F9]">
-                  {opEx.items.map((item) => (
-                    <PLRow key={item.id} label={item.title} subLabel={item.code} value={item.amount} />
-                  ))}
-                </div>
+      {/* Month-Wise Table */}
+      <div className="bg-white border border-[#E2E8F0] rounded-[4px] overflow-hidden">
+        <div className="overflow-x-auto max-h-[520px]">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead className="bg-[#F8FAFC] border-b border-[#E2E8F0] sticky top-0 z-10">
+              <tr>
+                <th className="px-3 py-2 font-bold text-[#475569] text-[11px] uppercase tracking-wider border-r border-[#E2E8F0] text-center w-12">
+                  S.#
+                </th>
+                <th className="px-3 py-2 font-bold text-[#475569] text-[11px] uppercase tracking-wider border-r border-[#E2E8F0]">
+                  Month
+                </th>
+                <th className="px-3 py-2 font-bold text-[#475569] text-[11px] uppercase tracking-wider border-r border-[#E2E8F0] text-right">
+                  Sale Amount
+                </th>
+                <th className="px-3 py-2 font-bold text-[#475569] text-[11px] uppercase tracking-wider border-r border-[#E2E8F0] text-right">
+                  Pur Amount
+                </th>
+                <th className="px-3 py-2 font-bold text-[#475569] text-[11px] uppercase tracking-wider border-r border-[#E2E8F0] text-right">
+                  Gross P&amp;L
+                </th>
+                <th className="px-3 py-2 font-bold text-[#475569] text-[11px] uppercase tracking-wider border-r border-[#E2E8F0] text-right">
+                  %
+                </th>
+                <th className="px-3 py-2 font-bold text-[#475569] text-[11px] uppercase tracking-wider border-r border-[#E2E8F0] text-right">
+                  Expense
+                </th>
+                <th className="px-3 py-2 font-bold text-[#475569] text-[11px] uppercase tracking-wider border-r border-[#E2E8F0] text-right">
+                  Net P&amp;L
+                </th>
+                <th className="px-3 py-2 font-bold text-[#475569] text-[11px] uppercase tracking-wider border-r border-[#E2E8F0] text-right">
+                  Other Income
+                </th>
+                <th className="px-3 py-2 font-bold text-[#475569] text-[11px] uppercase tracking-wider text-right">
+                  Total P&amp;L
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#E2E8F0]">
+              {loading ? (
+                <tr>
+                  <td colSpan={10} className="px-3 py-8 text-center text-[#94A3B8]">
+                    Loading P&amp;L data...
+                  </td>
+                </tr>
+              ) : rows.length > 0 ? (
+                rows.map((row, idx) => (
+                  <tr key={row.month} className="hover:bg-[#F8FAFC] transition">
+                    <td className="px-3 py-2 border-r border-[#E2E8F0] text-center font-mono text-[#64748B]">
+                      {idx + 1}
+                    </td>
+                    <td className="px-3 py-2 border-r border-[#E2E8F0] font-mono font-medium text-[#0F172A]">
+                      {row.month}
+                    </td>
+                    <td className="px-3 py-2 border-r border-[#E2E8F0] text-right font-mono font-semibold text-[#0F172A]">
+                      {formatCurrency(row.saleAmount)}
+                    </td>
+                    <td className="px-3 py-2 border-r border-[#E2E8F0] text-right font-mono font-semibold text-[#0F172A]">
+                      {formatCurrency(row.purAmount)}
+                    </td>
+                    <td className={`px-3 py-2 border-r border-[#E2E8F0] text-right font-mono font-semibold ${row.grossPL < 0 ? 'text-[#DC2626]' : 'text-[#166534]'}`}>
+                      {formatCurrency(row.grossPL)}
+                    </td>
+                    <td className="px-3 py-2 border-r border-[#E2E8F0] text-right font-mono text-[#475569]">
+                      {Number(row.pct || 0).toFixed(2)}%
+                    </td>
+                    <td className="px-3 py-2 border-r border-[#E2E8F0] text-right font-mono text-[#991B1B]">
+                      {formatCurrency(row.expense)}
+                    </td>
+                    <td className={`px-3 py-2 border-r border-[#E2E8F0] text-right font-mono font-bold ${row.netPL < 0 ? 'text-[#DC2626]' : 'text-[#166534]'}`}>
+                      {formatCurrency(row.netPL)}
+                    </td>
+                    <td className="px-3 py-2 border-r border-[#E2E8F0] text-right font-mono text-[#15803D]">
+                      {formatCurrency(row.otherIncome)}
+                    </td>
+                    <td className={`px-3 py-2 text-right font-mono font-bold ${row.totalPL < 0 ? 'text-[#DC2626]' : 'text-[#166534]'}`}>
+                      {formatCurrency(row.totalPL)}
+                    </td>
+                  </tr>
+                ))
               ) : (
-                <div className="px-3 py-4 text-center text-[11px] text-[#94A3B8]">
-                  No operating expense accounts recorded
-                </div>
+                <tr>
+                  <td colSpan={10} className="px-3 py-8 text-center text-[#94A3B8]">
+                    No transactions found for the selected period.
+                  </td>
+                </tr>
               )}
-              <div className="flex items-center justify-between px-3 py-2 bg-[#FFF7ED] border-t border-[#FED7AA]">
-                <span className="text-xs font-bold text-[#9A3412]">Total Expenses</span>
-                <span className="font-mono text-sm font-bold text-[#C2410C]">
-                  {formatCurrency(opEx.totalExpenses)}
-                </span>
-              </div>
-            </div>
-
-            <div className="border-t-2 border-[#0F172A] my-3" />
-
-            {/* ── NET PROFIT / LOSS ────────────────────────────────── */}
-            <div
-              className={`flex items-center justify-between px-4 py-4 rounded-[3px] border-2 ${
-                isPositiveNP
-                  ? 'bg-[#F0FDF4] border-[#16A34A]'
-                  : 'bg-[#FFF1F2] border-[#DC2626]'
-              }`}
-            >
-              <div>
-                <span className="text-sm font-bold text-[#0F172A] uppercase tracking-wider">
-                  {isPositiveNP ? 'NET PROFIT' : 'NET LOSS'}
-                </span>
-                <p className="text-[10px] text-[#64748B] mt-0.5">Gross Profit less Total Operating Expenses</p>
-              </div>
-              <span
-                className={`font-mono text-xl font-bold ${
-                  isPositiveNP ? 'text-[#16A34A]' : 'text-[#DC2626]'
-                }`}
-              >
-                {formatCurrency(Math.abs(netProfitValue))}
-              </span>
-            </div>
-
-            {/* ── CLOSING STOCK VALUATION (info) ───────────────────── */}
-            <div className="mt-4 flex items-start gap-2 px-3 py-2.5 bg-[#F8FAFC] border border-[#E2E8F0] rounded-[3px]">
-              <Info className="w-3.5 h-3.5 text-[#64748B] mt-0.5 flex-shrink-0" />
-              <div className="flex-1 flex items-center justify-between">
-                <span className="text-[11px] text-[#64748B]">
-                  Closing Stock Valuation (at WAC) — informational only, not included in P&amp;L above
-                </span>
-                <span className="font-mono text-xs font-bold text-[#475569] ml-4">
-                  {formatCurrency(closingStock)}
-                </span>
-              </div>
-            </div>
-
-          </div>
+            </tbody>
+            {/* Total Row */}
+            <tfoot className="bg-[#F8FAFC] border-t-2 border-[#CBD5E1] font-bold sticky bottom-0">
+              <tr>
+                <td className="px-3 py-2 border-r border-[#E2E8F0] text-center text-[#475569] font-mono">
+                  —
+                </td>
+                <td className="px-3 py-2 border-r border-[#E2E8F0] uppercase tracking-wider text-[#0F172A]">
+                  Total
+                </td>
+                <td className="px-3 py-2 border-r border-[#E2E8F0] text-right font-mono text-[#0F172A]">
+                  {formatCurrency(total.saleAmount || 0)}
+                </td>
+                <td className="px-3 py-2 border-r border-[#E2E8F0] text-right font-mono text-[#0F172A]">
+                  {formatCurrency(total.purAmount || 0)}
+                </td>
+                <td className={`px-3 py-2 border-r border-[#E2E8F0] text-right font-mono ${(total.grossPL || 0) < 0 ? 'text-[#DC2626]' : 'text-[#166534]'}`}>
+                  {formatCurrency(total.grossPL || 0)}
+                </td>
+                <td className="px-3 py-2 border-r border-[#E2E8F0] text-right font-mono text-[#475569]">
+                  {Number(total.pct || 0).toFixed(2)}%
+                </td>
+                <td className="px-3 py-2 border-r border-[#E2E8F0] text-right font-mono text-[#991B1B]">
+                  {formatCurrency(total.expense || 0)}
+                </td>
+                <td className={`px-3 py-2 border-r border-[#E2E8F0] text-right font-mono ${(total.netPL || 0) < 0 ? 'text-[#DC2626]' : 'text-[#166534]'}`}>
+                  {formatCurrency(total.netPL || 0)}
+                </td>
+                <td className="px-3 py-2 border-r border-[#E2E8F0] text-right font-mono text-[#15803D]">
+                  {formatCurrency(total.otherIncome || 0)}
+                </td>
+                <td className={`px-3 py-2 text-right font-mono ${(total.totalPL || 0) < 0 ? 'text-[#DC2626]' : 'text-[#166534]'}`}>
+                  {formatCurrency(total.totalPL || 0)}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
         </div>
-      )}
-    </div>
-  );
-}
-
-/* ─── Sub-component: single P&L line row ───────────────────────── */
-function PLRow({ label, subLabel, value, isDeduction = false }) {
-  const numericValue = Math.abs(Number(value) || 0);
-  return (
-    <div className="flex items-center justify-between px-3 py-2">
-      <div>
-        <span className="text-xs text-[#1E293B]">{label}</span>
-        {subLabel && (
-          <span className="ml-1.5 text-[10px] font-mono text-[#94A3B8]">[{subLabel}]</span>
-        )}
       </div>
-      <span
-        className={`font-mono text-xs font-semibold ${
-          isDeduction ? 'text-[#DC2626]' : 'text-[#0F172A]'
-        }`}
-      >
-        {isDeduction && numericValue > 0 ? '(' : ''}
-        {formatCurrency(numericValue)}
-        {isDeduction && numericValue > 0 ? ')' : ''}
-      </span>
     </div>
   );
 }

@@ -104,9 +104,18 @@ function registerReportIpc() {
     }
   });
 
-  ipcMain.handle("reports:profitLoss", async (event, { dateFrom, dateTo }) => {
+  ipcMain.handle("reports:profitLoss", async (event, { dateFrom, dateTo } = {}) => {
     try {
       const data = reportService.getProfitLoss(dateFrom, dateTo);
+      return { success: true, data };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle("reports:profitLossMonthWise", async (event, { dateFrom, dateTo } = {}) => {
+    try {
+      const data = reportService.getProfitLossMonthWise(dateFrom, dateTo);
       return { success: true, data };
     } catch (err) {
       return { success: false, error: err.message };

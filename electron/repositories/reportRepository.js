@@ -1150,6 +1150,129 @@ class ReportRepository extends BaseRepository {
     };
   }
 
+  // 9b. Profit & Loss Month Wise (One Ledger Synchronized)
+  getProfitLossMonthWise(dateFrom = null, dateTo = null) {
+    const db = this.db;
+
+    const now = new Date();
+    const curYear = now.getFullYear();
+    const curMonth = String(now.getMonth() + 1).padStart(2, '0');
+    const lastDay = new Date(curYear, now.getMonth() + 1, 0).getDate();
+    const defaultFrom = `${curYear}-${curMonth}-01`;
+    const defaultTo = `${curYear}-${curMonth}-${String(lastDay).padStart(2, '0')}`;
+
+    const effectiveDateFrom = dateFrom || defaultFrom;
+    const effectiveDateTo = dateTo || defaultTo;
+
+    const sql = `
+      SELECT 
+        strftime('%Y-%m', me.date) as month,
+        COALESCE(SUM(CASE 
+          WHEN me.entry_type = 'SALE' AND a.account_type = 'REVENUE' AND ll.type = 'credit' THEN ll.amount 
+          WHEN me.entry_type = 'SALES_RETURN' AND a.account_type = 'REVENUE' AND ll.type = 'debit' THEN -ll.amount 
+          ELSE 0 
+        END), 0.0) as sale_amount,
+        COALESCE(SUM(CASE 
+          WHEN me.entry_type = 'PURCHASE' AND a.account_type = 'PURCHASES' AND ll.type = 'debit' THEN ll.amount 
+          WHEN me.entry_type = 'PURCHASE_RETURN' AND a.account_type = 'PURCHASES' AND ll.type = 'credit' THEN -ll.amount 
+          ELSE 0 
+        END), 0.0) as pur_amount,
+        COALESCE(SUM(CASE 
+          WHEN a.account_type = 'EXPENSE' AND ll.type = 'debit' THEN ll.amount 
+          WHEN a.account_type = 'EXPENSE' AND ll.type = 'credit' THEN -ll.amount 
+          ELSE 0 
+        END), 0.0) as expense,
+        COALESCE(SUM(CASE 
+          WHEN a.account_type = 'OTHER_INCOME' AND ll.type = 'credit' THEN ll.amount 
+          WHEN a.account_type = 'OTHER_INCOME' AND ll.type = 'debit' THEN -ll.amount 
+          ELSE 0 
+        END), 0.0) as other_income
+      FROM master_entries me
+      JOIN ledger_lines ll ON me.id = ll.entry_id
+      JOIN accounts a ON ll.account_id = a.id
+      WHERE me.status = 'POSTED' AND me.date >= ? AND me.date <= ?
+      GROUP BY strftime('%Y-%m', me.date)
+      ORDER BY month ASC
+    `;
+
+    const rawRows = db.prepare(sql).all(effectiveDateFrom, effectiveDateTo);
+
+    const rows = [];
+    for (const r of rawRows) {
+      const saleAmount = Math.round(Number(r.sale_amount || 0) * 100) / 100;
+      const purAmount = Math.round(Number(r.pur_amount || 0) * 100) / 100;
+      const expense = Math.round(Number(r.expense || 0) * 100) / 100;
+      const otherIncome = Math.round(Number(r.other_income || 0) * 100) / 100;
+
+      // Skip months with all zeros
+      if (saleAmount === 0 && purAmount === 0 && expense === 0 && otherIncome === 0) {
+        continue;
+      }
+
+      const grossPL = Math.round((saleAmount - purAmount) * 100) / 100;
+      const pct = saleAmount > 0 ? Math.round((grossPL / saleAmount * 100) * 100) / 100 : 0;
+      const netPL = Math.round((grossPL - expense) * 100) / 100;
+      const totalPL = Math.round((netPL + otherIncome) * 100) / 100;
+
+      rows.push({
+        month: r.month,
+        saleAmount,
+        purAmount,
+        grossPL,
+        pct,
+        expense,
+        netPL,
+        otherIncome,
+        totalPL,
+      });
+    }
+
+    let totalSale = 0;
+    let totalPur = 0;
+    let totalGross = 0;
+    let totalExpense = 0;
+    let totalNet = 0;
+    let totalOtherIncome = 0;
+    let totalPL = 0;
+
+    for (const row of rows) {
+      totalSale += row.saleAmount;
+      totalPur += row.purAmount;
+      totalGross += row.grossPL;
+      totalExpense += row.expense;
+      totalNet += row.netPL;
+      totalOtherIncome += row.otherIncome;
+      totalPL += row.totalPL;
+    }
+
+    totalSale = Math.round(totalSale * 100) / 100;
+    totalPur = Math.round(totalPur * 100) / 100;
+    totalGross = Math.round(totalGross * 100) / 100;
+    totalExpense = Math.round(totalExpense * 100) / 100;
+    totalNet = Math.round(totalNet * 100) / 100;
+    totalOtherIncome = Math.round(totalOtherIncome * 100) / 100;
+    totalPL = Math.round(totalPL * 100) / 100;
+    const totalPct = totalSale > 0 ? Math.round((totalGross / totalSale * 100) * 100) / 100 : 0;
+
+    const total = {
+      saleAmount: totalSale,
+      purAmount: totalPur,
+      grossPL: totalGross,
+      pct: totalPct,
+      expense: totalExpense,
+      netPL: totalNet,
+      otherIncome: totalOtherIncome,
+      totalPL: totalPL,
+    };
+
+    return {
+      dateFrom: effectiveDateFrom,
+      dateTo: effectiveDateTo,
+      rows,
+      total,
+    };
+  }
+
   // 10. Authoritative Stock Valuation & Item Status
   getStockValuationReport(search = '', category = '') {
     const db = this.db;

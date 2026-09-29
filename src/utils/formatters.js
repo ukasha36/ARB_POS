@@ -40,6 +40,7 @@ const ENTRY_TYPE_LABELS = {
   PURCHASE_RETURN: "Purchase Return",
   CAPITAL: "Capital Investment",
   CAPITAL_WITHDRAWAL: "Capital Withdrawal",
+  EXPENSE: "Expense",
 };
 
 export function entryTypeLabel(type) {

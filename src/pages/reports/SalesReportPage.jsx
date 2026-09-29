@@ -16,9 +16,11 @@ import {
 } from '@tanstack/react-table';
 import { api } from '../../services/api';
 import { formatCurrency } from '../../utils/formatters';
+import { TransactionViewModal } from '../../components/transactions/TransactionViewModal';
 
 export function SalesReportPage() {
   const [records, setRecords] = useState([]);
+  const [selectedEntryId, setSelectedEntryId] = useState(null);
   const [summary, setSummary] = useState({
     grossSales: 0,
     returns: 0,
@@ -307,7 +309,11 @@ export function SalesReportPage() {
             <tbody className="divide-y divide-[#E2E8F0]">
               {table.getRowModel().rows.length > 0 ? (
                 table.getRowModel().rows.map((row) => (
-                  <tr key={row.id} className="hover:bg-[#F8FAFC] transition">
+                  <tr
+                    key={row.id}
+                    onClick={() => row.original?.entry_id && setSelectedEntryId(row.original.entry_id)}
+                    className={`hover:bg-[#F8FAFC] transition ${row.original?.entry_id ? 'cursor-pointer' : ''}`}
+                  >
                     {row.getVisibleCells().map((cell) => (
                       <td
                         key={cell.id}
@@ -329,6 +335,12 @@ export function SalesReportPage() {
           </table>
         </div>
       </div>
+
+      <TransactionViewModal
+        isOpen={!!selectedEntryId}
+        onClose={() => setSelectedEntryId(null)}
+        entryId={selectedEntryId}
+      />
     </div>
   );
 }

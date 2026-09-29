@@ -24,6 +24,7 @@ const SalesBillingPage = lazy(() => import("./pages/operations/SalesBillingPage"
 const SalesReturnPage = lazy(() => import("./pages/operations/SalesReturnPage").then(m => ({ default: m.SalesReturnPage })));
 const IncomingTransactionPage = lazy(() => import("./pages/operations/IncomingTransactionPage").then(m => ({ default: m.IncomingTransactionPage })));
 const OutgoingTransactionPage = lazy(() => import("./pages/operations/OutgoingTransactionPage").then(m => ({ default: m.OutgoingTransactionPage })));
+const ExpenseEntryPage = lazy(() => import("./pages/operations/ExpenseEntryPage").then(m => ({ default: m.ExpenseEntryPage })));
 
 // Lazy load all Report pages
 const ProfitReportPage = lazy(() => import("./pages/reports/ProfitReportPage").then(m => ({ default: m.ProfitReportPage })));
@@ -106,6 +107,8 @@ export default function App() {
         return <IncomingTransactionPage />;
       case "ops-payment-voucher":
         return <OutgoingTransactionPage />;
+      case "ops-expense-entry":
+        return <ExpenseEntryPage />;
 
       // ── Reports ────────────────────────────────────────────
       case "rep-profit":

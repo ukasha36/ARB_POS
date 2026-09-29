@@ -124,6 +124,12 @@ export function Sidebar() {
           category: "DAILY OPERATIONS",
           icon: Receipt,
         },
+        {
+          id: "ops-expense-entry",
+          title: "Expenses",
+          category: "DAILY OPERATIONS",
+          icon: DollarSign,
+        },
         // {
         //   id: "ops-offer-list",
         //   title: "Offer List",

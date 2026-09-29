@@ -18,12 +18,14 @@ import {
 } from '@tanstack/react-table';
 import { api } from '../../services/api';
 import { formatCurrency } from '../../utils/formatters';
+import { TransactionViewModal } from '../../components/transactions/TransactionViewModal';
 
 export function CustomerLedgerPage() {
   const [customers, setCustomers] = useState([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [selectedEntryId, setSelectedEntryId] = useState(null);
 
   const [ledgerData, setLedgerData] = useState({
     customer: {},
@@ -392,7 +394,11 @@ export function CustomerLedgerPage() {
             <tbody className="divide-y divide-[#E2E8F0]">
               {table.getRowModel().rows.length > 0 ? (
                 table.getRowModel().rows.map((row) => (
-                  <tr key={row.id} className="hover:bg-[#F8FAFC] transition">
+                  <tr
+                    key={row.id}
+                    onClick={() => row.original?.entry_id && setSelectedEntryId(row.original.entry_id)}
+                    className={`hover:bg-[#F8FAFC] transition ${row.original?.entry_id ? 'cursor-pointer' : ''}`}
+                  >
                     {row.getVisibleCells().map((cell) => (
                       <td
                         key={cell.id}
@@ -414,6 +420,12 @@ export function CustomerLedgerPage() {
           </table>
         </div>
       </div>
+
+      <TransactionViewModal
+        isOpen={!!selectedEntryId}
+        onClose={() => setSelectedEntryId(null)}
+        entryId={selectedEntryId}
+      />
     </div>
   );
 }

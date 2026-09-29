@@ -76,7 +76,7 @@ export function WelcomePage() {
               <Package className="w-5 h-5" />
             </div>
             <div className="text-left">
-              <div className="font-bold text-sm">Stock / Inventory</div>
+              <div className="font-bold text-sm">Stock</div>
               <div className="text-[10px] opacity-80">On-hand stock status</div>
             </div>
           </button>

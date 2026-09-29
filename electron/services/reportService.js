@@ -50,6 +50,10 @@ class ReportService {
     return reportRepository.getProfitLossStatement(dateFrom, dateTo);
   }
 
+  getProfitLossMonthWise(dateFrom, dateTo) {
+    return reportRepository.getProfitLossMonthWise(dateFrom, dateTo);
+  }
+
   getStockValuation(search = '', category = '') {
     return reportRepository.getStockValuationReport(search, category);
   }

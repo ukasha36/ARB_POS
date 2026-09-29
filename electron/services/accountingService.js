@@ -150,7 +150,8 @@ class AccountingService {
                        entry_type === 'PURCHASE' ? 'PR-' : 
                        entry_type === 'PURCHASE_RETURN' ? 'PRR-' :
                        entry_type === 'CAPITAL' ? 'CAP-' :
-                       entry_type === 'CAPITAL_WITHDRAWAL' ? 'CW-' : 'TX-';
+                       entry_type === 'CAPITAL_WITHDRAWAL' ? 'CW-' :
+                       entry_type === 'EXPENSE' ? 'EXP-' : 'TX-';
         const lastEntry = db.prepare(`SELECT seq FROM sqlite_sequence WHERE name = 'master_entries'`).get();
         const nextId = (lastEntry ? lastEntry.seq : 0) + 1;
         reference_no = `${prefix}${String(nextId).padStart(6, '0')}`;
@@ -596,7 +597,8 @@ class AccountingService {
                      entry_type === 'PURCHASE' ? 'PR-' :
                      entry_type === 'PURCHASE_RETURN' ? 'PRR-' :
                      entry_type === 'CAPITAL' ? 'CAP-' :
-                     entry_type === 'CAPITAL_WITHDRAWAL' ? 'CW-' : 'TX-';
+                     entry_type === 'CAPITAL_WITHDRAWAL' ? 'CW-' :
+                     entry_type === 'EXPENSE' ? 'EXP-' : 'TX-';
       const lastEntry = db.prepare("SELECT seq FROM sqlite_sequence WHERE name = 'master_entries'").get();
       const nextId = (lastEntry ? lastEntry.seq : 0) + 1;
       reference_no = `${prefix}${String(nextId).padStart(6, '0')}`;

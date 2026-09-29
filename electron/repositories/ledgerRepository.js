@@ -265,6 +265,8 @@ class LedgerRepository extends BaseRepository {
 
     const inv_lines = inventoryLines.map((il) => ({
       item_id: il.item_id,
+      item_name: il.item_name || '',
+      item_code: il.item_code || '',
       qty: Number(il.qty) || 0,
       unit_price: Number(il.unit_price) || 0,
       total_price: Number(il.total_price) || 0,
@@ -327,6 +329,7 @@ class LedgerRepository extends BaseRepository {
         dateFrom,
         dateTo,
         accountId,
+        paymentAccountId,
         search,
         limit = 100,
         offset = 0,
@@ -354,7 +357,23 @@ class LedgerRepository extends BaseRepository {
           (SELECT a2.title FROM ledger_lines ll2
            JOIN accounts a2 ON ll2.account_id = a2.id
            WHERE ll2.entry_id = me.id ORDER BY ll2.id LIMIT 1)
-        ) as account_name
+        ) as account_name,
+        (SELECT a_exp.title FROM ledger_lines ll_exp
+         JOIN accounts a_exp ON ll_exp.account_id = a_exp.id
+         WHERE ll_exp.entry_id = me.id AND a_exp.account_type = 'EXPENSE'
+         LIMIT 1) as expense_account_name,
+        (SELECT a_exp.id FROM ledger_lines ll_exp
+         JOIN accounts a_exp ON ll_exp.account_id = a_exp.id
+         WHERE ll_exp.entry_id = me.id AND a_exp.account_type = 'EXPENSE'
+         LIMIT 1) as expense_account_id,
+        (SELECT a_cb.title FROM ledger_lines ll_cb
+         JOIN accounts a_cb ON ll_cb.account_id = a_cb.id
+         WHERE ll_cb.entry_id = me.id AND a_cb.account_type IN ('CASH','BANK')
+         LIMIT 1) as payment_account_name,
+        (SELECT a_cb.id FROM ledger_lines ll_cb
+         JOIN accounts a_cb ON ll_cb.account_id = a_cb.id
+         WHERE ll_cb.entry_id = me.id AND a_cb.account_type IN ('CASH','BANK')
+         LIMIT 1) as payment_account_id
       FROM master_entries me
       WHERE 1=1
       `;
@@ -380,6 +399,10 @@ class LedgerRepository extends BaseRepository {
         sql += ' AND EXISTS (SELECT 1 FROM ledger_lines WHERE entry_id = me.id AND account_id = ?)';
         params.push(parseInt(accountId, 10));
       }
+      if (paymentAccountId) {
+        sql += ' AND EXISTS (SELECT 1 FROM ledger_lines WHERE entry_id = me.id AND account_id = ?)';
+        params.push(parseInt(paymentAccountId, 10));
+      }
       if (search) {
         sql += ' AND (me.reference_no LIKE ? OR me.description LIKE ?)';
         const term = `%${search.trim()}%`;
@@ -401,6 +424,10 @@ class LedgerRepository extends BaseRepository {
         party_account_id: r.party_account_id || null,
         total_amount: Number(r.total_amount) || 0,
         account_name: r.account_name || null,
+        expense_account_name: r.expense_account_name || null,
+        expense_account_id: r.expense_account_id || null,
+        payment_account_name: r.payment_account_name || null,
+        payment_account_id: r.payment_account_id || null,
       }));
       }
    }

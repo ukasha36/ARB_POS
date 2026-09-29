@@ -51,6 +51,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     salesReturns: (filters) => ipcRenderer.invoke('reports:salesReturns', filters),
     purchaseReturns: (filters) => ipcRenderer.invoke('reports:purchaseReturns', filters),
     profitLoss: (params) => ipcRenderer.invoke('reports:profitLoss', params),
+    profitLossMonthWise: (params) => ipcRenderer.invoke('reports:profitLossMonthWise', params),
     stockValuation: (params) => ipcRenderer.invoke('reports:stockValuation', params),
     stockAnalytics: () => ipcRenderer.invoke('reports:stockAnalytics'),
   },

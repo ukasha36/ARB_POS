@@ -11,6 +11,7 @@ const TRANSACTION_LABELS = {
   HO_OUTGOING: 'Payment',
   CAPITAL: 'Capital Investment',
   CAPITAL_WITHDRAWAL: 'Capital Withdrawal',
+  EXPENSE: 'Expense',
 };
 
 function escapeHtml(value) {

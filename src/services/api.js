@@ -206,6 +206,10 @@ export const api = {
       if (hasElectron) return await window.electronAPI.reports.profitLoss(params);
       return { success: true, data: { revenue: {}, costOfGoodsSold: {}, operatingExpenses: { items: [] } } };
     },
+    profitLossMonthWise: async (params = {}) => {
+      if (hasElectron) return await window.electronAPI.reports.profitLossMonthWise(params);
+      return { success: true, data: { rows: [], total: {} } };
+    },
     stockValuation: async (params = {}) => {
       if (hasElectron) return await window.electronAPI.reports.stockValuation(params);
       return { success: true, data: { items: [], summary: {} } };
