@@ -51,6 +51,16 @@ function registerTransactionIpc() {
       return { success: false, error: err.message };
     }
   });
+
+  ipcMain.handle('transactions:getReturnSources', async (event, params) => {
+    try {
+      const data = accountingService.getReturnSources(params);
+      return { success: true, data };
+    } catch (err) {
+      console.error('[IPC transactions:getReturnSources Error]', err);
+      return { success: false, error: err.message };
+    }
+  });
 }
 
 module.exports = registerTransactionIpc;

@@ -278,6 +278,8 @@ function runMigrations() {
       "tax_amount",
       "INTEGER NOT NULL DEFAULT 0",
     );
+    addColumnIfNotExists("master_entries", "source_entry_id", "INTEGER");
+    addColumnIfNotExists("inventory_transactions", "source_entry_id", "INTEGER");
 
     db.prepare(
       `UPDATE setup_areas SET created_at = datetime('now') WHERE created_at IS NULL`,
@@ -296,9 +298,11 @@ function runMigrations() {
     db.exec(`
       CREATE INDEX IF NOT EXISTS idx_master_entries_date_type ON master_entries(date, entry_type);
       CREATE INDEX IF NOT EXISTS idx_master_entries_status ON master_entries(status);
+      CREATE INDEX IF NOT EXISTS idx_master_entries_source ON master_entries(source_entry_id);
       CREATE INDEX IF NOT EXISTS idx_ledger_lines_acc_type ON ledger_lines(account_id, type);
       CREATE INDEX IF NOT EXISTS idx_inv_txns_item_type ON inventory_transactions(item_id, transaction_type);
       CREATE INDEX IF NOT EXISTS idx_inv_txns_entry ON inventory_transactions(entry_id);
+      CREATE INDEX IF NOT EXISTS idx_inv_txns_source ON inventory_transactions(source_entry_id);
       CREATE INDEX IF NOT EXISTS idx_accounts_type ON accounts(account_type);
       CREATE INDEX IF NOT EXISTS idx_items_status ON items(status);
     `);

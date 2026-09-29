@@ -9,16 +9,17 @@ class LedgerRepository extends BaseRepository {
     const conn = dbConn || this.db;
     const {
       entry_type, date, description = '', reference_no = '', status = 'POSTED',
-      party_account_id = null, transaction_amount = 0,
+      party_account_id = null, transaction_amount = 0, source_entry_id = null,
     } = entry;
     const stmt = conn.prepare(`
-      INSERT INTO master_entries (entry_type, date, description, reference_no, status, party_account_id, transaction_amount)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO master_entries (entry_type, date, description, reference_no, status, party_account_id, transaction_amount, source_entry_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const info = stmt.run(
       entry_type, date, description, reference_no, status,
       party_account_id || null,
       Number(transaction_amount) || 0,
+      source_entry_id || null,
     );
     return info.lastInsertRowid;
   }
@@ -45,12 +46,13 @@ class LedgerRepository extends BaseRepository {
       total_price,
       cost_price = 0.00,
       total_cost = 0.00,
+      source_entry_id = null,
     } = invLine;
     const stmt = conn.prepare(`
       INSERT INTO inventory_transactions (
-        entry_id, item_id, transaction_type, qty, unit_price, total_price, cost_price, total_cost
+        entry_id, item_id, transaction_type, qty, unit_price, total_price, cost_price, total_cost, source_entry_id
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     stmt.run(
       entry_id,
@@ -60,7 +62,8 @@ class LedgerRepository extends BaseRepository {
       Math.round(Number(unit_price) * 100) / 100,
       Math.round(Number(total_price) * 100) / 100,
       Math.round(Number(cost_price) * 100) / 100,
-      Math.round(Number(total_cost) * 100) / 100
+      Math.round(Number(total_cost) * 100) / 100,
+      source_entry_id || null
     );
   }
 
@@ -271,6 +274,7 @@ class LedgerRepository extends BaseRepository {
       unit_price: Number(il.unit_price) || 0,
       total_price: Number(il.total_price) || 0,
       transaction_type: il.transaction_type,
+      source_entry_id: il.source_entry_id || null,
     }));
 
     const total_amount = master.transaction_amount
@@ -288,6 +292,7 @@ class LedgerRepository extends BaseRepository {
       reference_no: master.reference_no,
       status: master.status,
       party_account_id: master.party_account_id || null,
+      source_entry_id: master.source_entry_id || null,
       total_amount: Math.round(total_amount * 100) / 100,
       debit_lines,
       credit_lines,
@@ -344,6 +349,7 @@ class LedgerRepository extends BaseRepository {
         me.reference_no,
         me.status,
         me.party_account_id,
+        me.source_entry_id,
         COALESCE(NULLIF(me.transaction_amount, 0),
           ROUND(COALESCE(
             (SELECT SUM(ll2.amount) FROM ledger_lines ll2 WHERE ll2.entry_id = me.id AND lower(ll2.type) = 'debit'), 0), 2)
@@ -431,6 +437,7 @@ class LedgerRepository extends BaseRepository {
         reference_no: r.reference_no,
         status: r.status,
         party_account_id: r.party_account_id || null,
+        source_entry_id: r.source_entry_id || null,
         total_amount: Number(r.total_amount) || 0,
         account_name: r.account_name || null,
         expense_account_name: r.expense_account_name || null,
@@ -439,7 +446,94 @@ class LedgerRepository extends BaseRepository {
         payment_account_id: r.payment_account_id || null,
         item_names: r.item_names || null,
       }));
+    }
+
+  /**
+   * Get posted source transactions for return processing.
+   * For PURCHASE_RETURN: find actual posted purchases for supplier + item.
+   * For SALES_RETURN: find actual posted sales for customer + item.
+   * Computes returnable_qty = purchased/sold qty - already returned qty.
+   */
+  getReturnSources(params, dbConn = null) {
+    const conn = dbConn || this.db;
+    const {
+      entry_type, // 'PURCHASE_RETURN' or 'SALES_RETURN'
+      party_account_id,
+      item_id,
+      exclude_entry_id = null,
+    } = params;
+
+    if (!party_account_id || !item_id) {
+      return [];
+    }
+
+    const isPurchase = entry_type === 'PURCHASE_RETURN';
+    const sourceTxType = isPurchase ? 'PURCHASE' : 'SALE';
+    const returnTxType = isPurchase ? 'PURCHASE_RETURN' : 'SALES_RETURN';
+
+    const pId = parseInt(party_account_id, 10);
+    const iId = parseInt(item_id, 10);
+    const exclId = exclude_entry_id ? parseInt(exclude_entry_id, 10) : null;
+
+    // Find all POSTED source transactions for this party and item
+    const sql = `
+      SELECT
+        me.id as entry_id,
+        me.reference_no,
+        me.date,
+        it.unit_price,
+        it.cost_price,
+        SUM(it.qty) as original_qty
+      FROM master_entries me
+      JOIN inventory_transactions it ON it.entry_id = me.id
+      WHERE me.entry_type = ?
+        AND me.status = 'POSTED'
+        AND me.party_account_id = ?
+        AND it.item_id = ?
+        AND it.transaction_type = ?
+      GROUP BY me.id, it.unit_price
+      ORDER BY me.date DESC, me.id DESC
+    `;
+
+    const sources = conn.prepare(sql).all(sourceTxType, pId, iId, sourceTxType);
+
+    const results = [];
+    for (const src of sources) {
+      // Calculate previously returned qty for this source entry and item
+      let retSql = `
+        SELECT COALESCE(SUM(it.qty), 0) as returned_qty
+        FROM inventory_transactions it
+        JOIN master_entries me ON it.entry_id = me.id
+        WHERE me.status = 'POSTED'
+          AND it.transaction_type = ?
+          AND it.item_id = ?
+          AND (it.source_entry_id = ? OR me.source_entry_id = ?)
+      `;
+      const retParams = [returnTxType, iId, src.entry_id, src.entry_id];
+      if (exclId) {
+        retSql += ' AND me.id != ?';
+        retParams.push(exclId);
       }
-   }
+
+      const retRow = conn.prepare(retSql).get(...retParams);
+      const previouslyReturned = Number(retRow?.returned_qty || 0);
+      const returnableQty = Math.max(0, Math.round((Number(src.original_qty) - previouslyReturned) * 1000) / 1000);
+
+      results.push({
+        entry_id: src.entry_id,
+        reference_no: src.reference_no,
+        date: src.date,
+        unit_price: Number(src.unit_price),
+        cost_price: Number(src.cost_price || src.unit_price),
+        purchased_qty: Number(src.original_qty),
+        sold_qty: Number(src.original_qty),
+        previously_returned_qty: previouslyReturned,
+        returnable_qty: returnableQty,
+      });
+    }
+
+    return results;
+  }
+}
 
 module.exports = new LedgerRepository();

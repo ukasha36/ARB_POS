@@ -84,6 +84,7 @@ class AccountingService {
       credit_lines = [],
       inventory_lines = [],
       party_account_id = null,
+      source_entry_id = null,
       status = 'POSTED',
     } = params;
 
@@ -166,6 +167,7 @@ class AccountingService {
         status: status || 'POSTED',
         party_account_id: party_account_id || null,
         transaction_amount,
+        source_entry_id: source_entry_id || null,
       }, db);
 
       // Insert Debit Ledger Lines
@@ -297,6 +299,7 @@ class AccountingService {
           total_price: txTotalPrice,
           cost_price: recordedCostPrice,
           total_cost: recordedTotalCost,
+          source_entry_id: inv.source_entry_id || source_entry_id || null,
         }, db);
       }
 
@@ -341,6 +344,10 @@ class AccountingService {
     });
 
     return executePost();
+  }
+
+  getReturnSources(params) {
+    return ledgerRepository.getReturnSources(params);
   }
 
   // Phase 3: Get a full transaction (master + ledger lines + inventory)
@@ -555,6 +562,7 @@ class AccountingService {
       credit_lines = [],
       inventory_lines = [],
       party_account_id = null,
+      source_entry_id = null,
       status = 'POSTED',
     } = params;
 
@@ -612,6 +620,7 @@ class AccountingService {
       status: status || 'POSTED',
       party_account_id: party_account_id || null,
       transaction_amount,
+      source_entry_id: source_entry_id || null,
     }, db);
 
     for (const dLine of debit_lines) {
@@ -718,6 +727,7 @@ class AccountingService {
         total_price: Math.round(Number(inv.total_price) || (txQty * txUnitPrice)) * 100 / 100,
         cost_price: recordedCostPrice,
         total_cost: recordedTotalCost,
+        source_entry_id: inv.source_entry_id || source_entry_id || null,
       }, db);
     }
 
